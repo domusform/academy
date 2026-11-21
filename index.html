@@ -343,6 +343,29 @@ a.btn { display: inline-flex; align-items: center; text-decoration: none; }
 .pg-ch { list-style: none; margin: 0; padding: 4px 14px 14px; display: grid; gap: 8px; }
 .pg-ch li { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(80px, 1fr) auto; gap: 12px; align-items: center; font-size: 15px; }
 .pg-ch small { color: var(--muted); font-weight: 700; }
+.blk-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
+.blk-tab { font: inherit; font-weight: 800; padding: 8px 14px; border-radius: 999px; border: 2px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; min-height: 40px; }
+.blk-tab small { font-weight: 700; color: var(--muted); margin-left: 6px; }
+.blk-tab.on { border-color: var(--lv, var(--accent)); background: var(--lv, var(--accent)); color: #fff; }
+.blk-tab.on small { color: rgba(255,255,255,.85); }
+.bd-why { font-size: 1.1em; font-weight: 700; color: var(--bad); margin: 12px 0 0; }
+.fb .why { display: block; font-weight: 600; color: var(--ink); margin-top: 4px; }
+.hint { font-size: 14px; color: var(--muted); margin: 0 0 14px; }
+.pg-sum { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 14px; }
+.pg-sum div { flex: 1 1 150px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); padding: 10px 14px; }
+.pg-sum b { display: block; font-size: 1.5rem; }
+.pg-sum span { font-size: 13px; color: var(--muted); font-weight: 700; }
+.pg-info { padding: 0 14px 6px; font-size: 14px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px 18px; }
+.pg-info strong { color: var(--ink); }
+.pg-info .weak { color: var(--bad); }
+.pg-tab { width: calc(100% - 28px); margin: 4px 14px 14px; border-collapse: collapse; font-size: 14px; }
+.pg-tab th, .pg-tab td { border-bottom: 1px solid var(--line); padding: 6px 6px; text-align: left; vertical-align: top; }
+.pg-tab th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.pg-tab td.n { white-space: nowrap; font-weight: 700; }
+.pg-es { display: flex; flex-wrap: wrap; gap: 4px; }
+.pg-es span { font-size: 12px; font-weight: 700; border-radius: 6px; padding: 2px 6px; background: var(--line); white-space: nowrap; }
+.pg-es .ok { background: #d9f2df; color: #1e6b33; } .pg-es .mid { background: #fdf0c8; color: #7a5a00; } .pg-es .low { background: #fbdcdc; color: #9b1c1c; }
+@media (max-width: 640px) { .pg-tab .hide-s { display: none; } }
 @media (max-width: 640px) {
   .pg-list summary { grid-template-columns: 1fr auto; }
   .pg-b { grid-column: 1 / -1; order: 5; }
@@ -605,6 +628,7 @@ const NOTA = (function () {
     for (; i < toks.length; i++) {
       const t = toks[i]; let m;
       if (t === '@n') { o.nostem = true; continue; }
+      if (t === '@c') { o.cmp = true; continue; } // raggruppa le crome a tre anche senza indicazione di tempo
       if (/^\d+\/\d+$/.test(t)) { o.ts = t.split('/'); continue; }
       if ((m = t.match(/^k([#b])(\d)$/))) { o.key = { k: m[1], n: +m[2] }; continue; }
       if (t === '|' || t === '||' || t === '|:' || t === ':|') { o.items.push({ t: 'bar', k: t }); continue; }
@@ -709,12 +733,40 @@ const NOTA = (function () {
         }
         run = [];
       };
-      items.forEach(it => {
-        if (it.t === 'note' && (it.d === 'e' || it.d === 's')) run.push(it);
-        else if (it.t === 'sl') { /* le legature non interrompono */ }
-        else flush();
-      });
-      flush();
+      // tempi composti (6/8, 9/8, 12/8...): le crome si raggruppano tre a tre (una battuta = movimenti di semiminima puntata)
+      const compound = P.cmp || (P.ts && +P.ts[1] === 8 && +P.ts[0] > 3 && +P.ts[0] % 3 === 0);
+      if (compound) {
+        const U = { w: 16, h: 8, q: 4, e: 2, s: 1 };
+        const len = it => U[it.d] * (it.dot === 1 ? 1.5 : it.dot === 2 ? 1.75 : it.dot === 3 ? 1.875 : 1);
+        let pos = 0, bar = 0, grp = [], key = null;
+        const close = () => {
+          if (grp.length > 1) {
+            const avg = grp.reduce((s, n) => s + (n.lo + n.hi) / 2, 0) / grp.length;
+            const up = avg < mid;
+            const g = grp.slice();
+            g.forEach(n => { n.up = up; n.beam = g; });
+          }
+          grp = []; key = null;
+        };
+        items.forEach(it => {
+          if (it.t === 'bar') { close(); pos = 0; bar++; return; }
+          if (it.t === 'sl') return;
+          if (it.t === 'note' && (it.d === 'e' || it.d === 's')) {
+            const k = bar + ':' + Math.floor(pos / 6 + 1e-9);
+            if (key !== null && k !== key) close();
+            key = k; grp.push(it);
+          } else close();
+          pos += len(it);
+        });
+        close();
+      } else {
+        items.forEach(it => {
+          if (it.t === 'note' && (it.d === 'e' || it.d === 's')) run.push(it);
+          else if (it.t === 'sl') { /* le legature non interrompono */ }
+          else flush();
+        });
+        flush();
+      }
     }
     // disegno elementi
     items.forEach(it => {
@@ -797,7 +849,7 @@ const NOTA = (function () {
         minY = Math.min(minY, bY - 160); maxY = Math.max(maxY, bY + 260);
       });
       const x1 = sx(g[0]), x2 = sx(g[g.length - 1]) + 18, th = 110;
-      const lines = g[0].d === 's' ? 2 : 1;
+      const lines = g.every(n => n.d === 's') ? 2 : 1;
       for (let k = 0; k < lines; k++) {
         const dy = up ? k * 175 : -k * 175 - th;
         parts.push(`<rect x="${x1}" y="${bY + (up ? 0 : 0) + dy + (up ? 0 : th * 0)}" width="${x2 - x1}" height="${th}"/>`);
@@ -1231,10 +1283,11 @@ const NOTA = (function () {
   }
   function boardEx(s) {
     const e = s.e;
-    let h = '<div class="bd-ex"><p class="bd-no">Esercizio ' + (s.i + 1) + ' di ' + s.n + ' · in aula</p><div class="bd-q">' + md(e.q) + '</div>';
+    const lab = DPE() ? 'Esercizio ' + (Math.floor(s.i / DPE()) + 1) + ' · domanda ' + (s.i % DPE() + 1) + ' di ' + Math.min(DPE(), s.n - Math.floor(s.i / DPE()) * DPE()) + ' · in aula' : 'Esercizio ' + (s.i + 1) + ' di ' + s.n + ' · in aula';
+    let h = '<div class="bd-ex"><p class="bd-no">' + lab + '</p><div class="bd-q">' + md(e.q) + '</div>';
     if (e.staff) h += '<figure class="fig">' + staff(e.staff, 'Pentagramma dell\'esercizio ' + (s.i + 1)) + '</figure>';
     if (e.tipo === 'scelta') h += '<div class="bd-opts">' + e.opz.map((o, j) => '<button type="button" class="bd-opt" data-bd="opt" data-j="' + j + '"><span class="opt-l">' + ('ABCD'[j] || (j + 1)) + '</span><span>' + esc(o) + '</span></button>').join('') + '</div>';
-    h += '<div class="bd-solbar"><button type="button" class="btn ghost" data-bd="sol">👁 Mostra la soluzione (S)</button></div><div class="bd-sol" hidden>' + (e.tipo === 'scelta' ? '<p><strong>Risposta: ' + esc('ABCD'[e.ok] || '') + '.</strong></p>' : '') + md(e.sol || '') + '</div></div>';
+    h += '<p class="bd-why" hidden></p><div class="bd-solbar"><button type="button" class="btn ghost" data-bd="sol">👁 Mostra la soluzione (S)</button></div><div class="bd-sol" hidden>' + (e.tipo === 'scelta' ? '<p><strong>Risposta: ' + esc('ABCD'[e.ok] || '') + '.</strong></p>' : '') + md(e.sol || '') + '</div></div>';
     return h;
   }
   function boardSol() {
@@ -1257,7 +1310,7 @@ const NOTA = (function () {
     const o = document.getElementById('board'), s = BD.slides[BD.i], n = BD.slides.length; let h;
     if (s.t) h = '<div class="bd-title"><p class="bd-no">Capitolo ' + BD.no + '</p><h1>' + esc(BD.ch.titolo) + '</h1>' + (BD.ch.obiettivi && BD.ch.obiettivi.length ? '<ul>' + BD.ch.obiettivi.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul>' : '') + '</div>';
     else if (s.r) h = '<div class="bd-rem"><h2>⭐ Da ricordare</h2><ul>' + s.r.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul></div>';
-    else if (s.x) h = '<div class="bd-title"><p class="bd-no">Capitolo ' + BD.no + '</p><h1>Esercizi in aula</h1><p class="bd-sub">' + s.x + (s.x === 1 ? ' esercizio' : ' esercizi') + ' da fare insieme. Tocca una risposta; premi S per mostrare la soluzione.</p></div>';
+    else if (s.x) h = '<div class="bd-title"><p class="bd-no">Capitolo ' + BD.no + '</p><h1>Esercizi in aula</h1><p class="bd-sub">' + (DPE() ? Math.ceil(s.x / DPE()) + ' esercizi (' + s.x + ' domande)' : s.x + (s.x === 1 ? ' esercizio' : ' esercizi')) + ' da fare insieme. Tocca una risposta; premi S per mostrare la soluzione.</p></div>';
     else if (s.e) h = boardEx(s);
     else if (s.bs.length > 1) h = '<div class="bd-multi n' + s.bs.length + '">' + s.bs.map(blockHTML).join('') + '</div>';
     else h = blockHTML(s.bs[0]);
@@ -1282,7 +1335,7 @@ const NOTA = (function () {
     o.addEventListener('click', e => {
       const x = e.target.closest('[data-bd]'); if (!x) return; const k = x.getAttribute('data-bd');
       if (k === 'close') boardClose(); else if (k === 'zm') boardZoom(-.1); else if (k === 'zp') boardZoom(.1); else if (k === 'full') boardFull(); else if (k === 'sol') boardSol();
-      else if (k === 'opt') { const s = BD.slides[BD.i]; if (s.e) { const j = +x.getAttribute('data-j'); x.classList.remove('right', 'wrong'); x.classList.add(j === s.e.ok ? 'right' : 'wrong'); } }
+      else if (k === 'opt') { const s = BD.slides[BD.i]; if (s.e) { const j = +x.getAttribute('data-j'); x.classList.remove('right', 'wrong'); x.classList.add(j === s.e.ok ? 'right' : 'wrong'); const w = o.querySelector('.bd-why'); if (w) { w.textContent = j === s.e.ok ? '' : ((s.e.perche || [])[j] || ''); w.hidden = !w.textContent; } } }
       else if (k === 'prev' && BD.i > 0) { BD.i--; boardShow(); } else if (k === 'next' && BD.i < BD.slides.length - 1) { BD.i++; boardShow(); }
     });
     document.body.appendChild(o); document.body.classList.add('board-on'); boardShow();
@@ -1322,6 +1375,13 @@ const NOTA = (function () {
 
     /* ---------- esercizi ---------- */
   const exKey = (ch, tab, i) => ch.id + '-' + tab + '-' + i;
+  /* Sezioni organizzate a esercizi (es. Teoria Musicale: 4 esercizi da 15 domande, 1-2 in aula e 3-4 a casa) */
+  const DPE = () => (DATA && Number(DATA.domandePerEsercizio)) || 0;
+  const nBlk = (ch, tab) => DPE() ? Math.ceil(ch[tab].length / DPE()) : 1;
+  const blkRange = (ch, tab, b) => { const d = DPE(); return d ? [b * d, Math.min(ch[tab].length, (b + 1) * d)] : [0, ch[tab].length]; };
+  const esNum = (ch, tab, b) => (tab === 'casa' ? nBlk(ch, 'aula') : 0) + b + 1;
+  let blkSel = {};
+  const curBlk = (ch, tab) => Math.max(0, Math.min(nBlk(ch, tab) - 1, blkSel[ch.id + '-' + tab] || 0));
   const isDone = (ch, tab, i) => !!(PROG[ch.id] && PROG[ch.id][tab + '-' + i]);
   function markDone(id, tab, i, v) {
     PROG[id] = PROG[id] || {};
@@ -1335,7 +1395,7 @@ const NOTA = (function () {
   }
   function exHTML(ch, tab, e, i) {
     const k = exKey(ch, tab, i);
-    let h = '<article class="ex" data-k="' + esc(k) + '"><div class="ex-n">' + (i + 1) + '</div><div class="ex-b">';
+    let h = '<article class="ex" data-k="' + esc(k) + '"><div class="ex-n">' + ((DPE() ? i % DPE() : i) + 1) + '</div><div class="ex-b">';
     h += '<div class="ex-q">' + md(e.q) + '</div>';
     if (e.staff) h += '<figure class="fig">' + staff(e.staff, 'Pentagramma dell\'esercizio ' + (i + 1)) + '</figure>';
     if (e.tipo === 'scelta') {
@@ -1348,7 +1408,7 @@ const NOTA = (function () {
       }).join('') + '</div>';
       let fb = '', fc = '';
       if (r && r.s === 'ok') { fc = 'ok'; fb = '<strong>Esatto!</strong> ' + esc(expl[k] || ''); }
-      else if (r && r.s === 'no') { fc = 'no'; fb = 'Non è questa. Rileggi la domanda e riprova.'; }
+      else if (r && r.s === 'no') { fc = 'no'; fb = r.why ? 'Non è questa.<span class="why">' + esc(r.why) + '</span>' : 'Non è questa. Rileggi la domanda e riprova.'; }
       else if (r && r.s === 'wait') { fb = 'Controllo…'; }
       else if (isAll() && isDone(ch, tab, i)) { fc = 'ok'; fb = '<strong>Già risolto.</strong> Puoi rispondere di nuovo per rileggere la spiegazione.'; }
       h += '<p class="fb ' + fc + '" aria-live="polite">' + fb + '</p>';
@@ -1361,10 +1421,11 @@ const NOTA = (function () {
   }
 
   /* ---------- schede da stampare ---------- */
-  function worksheet(ch, tab, withSol) {
-    const title = tab === 'aula' ? 'Esercizi in aula' : 'Esercizi a casa';
+  function worksheet(ch, tab, withSol, b) {
+    const useB = DPE() && b != null && !isNaN(b);
+    const title = useB ? 'Esercizio ' + esNum(ch, tab, b) + (tab === 'aula' ? ' · in aula' : ' · a casa') : (tab === 'aula' ? 'Esercizi in aula' : 'Esercizi a casa');
     const idx = DATA.capitoli.indexOf(ch) + 1;
-    const ex = ch[tab];
+    const ex = useB ? ch[tab].slice(blkRange(ch, tab, b)[0], blkRange(ch, tab, b)[1]) : ch[tab];
     const body = ex.map((e, i) => {
       let h = '<div class="e"><div class="n">' + (i + 1) + '</div><div class="b"><div class="q">' + md(e.q) + '</div>';
       if (e.staff) h += '<div class="f">' + staff(e.staff, 'Pentagramma') + '</div>';
@@ -1396,10 +1457,11 @@ const NOTA = (function () {
     }
     setTimeout(() => { try { URL.revokeObjectURL(url); } catch (e) { } }, 120000);
   }
-  function openSheet(ch, tab, withSol) {
-    const html = worksheet(ch, tab, withSol);
+  function openSheet(ch, tab, withSol, b) {
+    const useB = DPE() && b != null && !isNaN(b);
+    const html = worksheet(ch, tab, withSol, useB ? b : null);
     const idx = String(DATA.capitoli.indexOf(ch) + 1).padStart(2, '0');
-    openHtml(html, 'DomusForm-' + (SEZ ? SEZ.id : 'teoria') + '-Cap' + idx + '-' + (tab === 'aula' ? 'Aula' : 'Casa') + (withSol ? '-Soluzioni' : '') + '.html');
+    openHtml(html, 'DomusForm-' + (SEZ ? SEZ.id : 'teoria') + '-Cap' + idx + '-' + (useB ? 'Esercizio' + esNum(ch, tab, b) : (tab === 'aula' ? 'Aula' : 'Casa')) + (withSol ? '-Soluzioni' : '') + '.html');
   }
 
   /* ---------- schede colorate (Kids) ---------- */
@@ -1469,17 +1531,21 @@ const NOTA = (function () {
   }
 
   /* ---------- test salvati su Drive ---------- */
-  function testPronto(ch, tab) {
-    if (!ch[tab].length) return false;
-    return ch[tab].every((e, i) => isDone(ch, tab, i));
+  function testPronto(ch, tab, b) {
+    const r = blkRange(ch, tab, b || 0);
+    if (r[1] <= r[0]) return false;
+    for (let i = r[0]; i < r[1]; i++) if (!isDone(ch, tab, i)) return false;
+    return true;
   }
-  function inviaTest(ch, tab) {
+  function inviaTest(ch, tab, i) {
     if (!isAll() || !SEZ) return;
-    const k = ch.id + '-' + tab;
-    if (savedT[k] || !testPronto(ch, tab)) return;
+    const b = DPE() ? Math.floor((Number(i) || 0) / DPE()) : null;
+    const k = ch.id + '-' + tab + (b != null ? '-' + b : '');
+    if (savedT[k] || !testPronto(ch, tab, b)) return;
     savedT[k] = true;
-    const det = ch[tab].map((e, i) => { const kk = exKey(ch, tab, i); const r = res[kk]; return e.tipo === 'scelta' ? { ok: isDone(ch, tab, i), scelta: r ? r.j : -1, tentativi: tries[kk] || 1 } : { ok: isDone(ch, tab, i), testo: notes[kk] || '' }; });
-    tcall('salvaTest', SEZ.id, ch.id, tab, det).then(() => toast('Test salvato nella tua cartella. Bravo!')).catch(() => { savedT[k] = false; });
+    const r0 = blkRange(ch, tab, b || 0);
+    const det = ch[tab].slice(r0[0], r0[1]).map((e, x) => { const ii = r0[0] + x, kk = exKey(ch, tab, ii); const r = res[kk]; return e.tipo === 'scelta' ? { ok: isDone(ch, tab, ii), scelta: r ? r.j : -1, tentativi: tries[kk] || 1 } : { ok: isDone(ch, tab, ii), testo: notes[kk] || '' }; });
+    tcall('salvaTest', SEZ.id, ch.id, tab, det, b).then(() => toast(b != null ? 'Esercizio ' + esNum(ch, tab, b) + ' completato e salvato nella tua cartella. Bravo!' : 'Test salvato nella tua cartella. Bravo!')).catch(() => { savedT[k] = false; });
   }
   /* ---------- notifiche ---------- */
   let toastT = null;
@@ -1545,7 +1611,7 @@ const NOTA = (function () {
     h += '</header>';
     const tb = (t, label, n) => '<button role="tab" type="button" class="tab ' + (route.tab === t ? 'on' : '') + '" aria-selected="' + (route.tab === t) + '" data-act="tab" data-t="' + t + '">' + label + (n != null ? ' <small>' + n + '</small>' : '') + '</button>';
     if (SESS.user.ruolo === 'docente') h += TEACH_BANNER;
-    h += '<div class="tabs" role="tablist">' + tb('teoria', 'Teoria') + tb('aula', 'In aula', ch.aula.length) + tb('casa', 'A casa', ch.casa.length) + (showT() && ch.giochi && ch.giochi.length ? tb('giochi', 'Giochi', ch.giochi.length) : '') + (showT() && ch.schede && ch.schede.length ? tb('schede', 'Schede', ch.schede.length) : '') + '</div><div class="panel">';
+    h += '<div class="tabs" role="tablist">' + tb('teoria', 'Teoria') + tb('aula', 'In aula', DPE() ? 'Es. ' + esNum(ch, 'aula', 0) + (nBlk(ch, 'aula') > 1 ? '–' + esNum(ch, 'aula', nBlk(ch, 'aula') - 1) : '') : ch.aula.length) + tb('casa', 'A casa', DPE() ? 'Es. ' + esNum(ch, 'casa', 0) + (nBlk(ch, 'casa') > 1 ? '–' + esNum(ch, 'casa', nBlk(ch, 'casa') - 1) : '') : ch.casa.length) + (showT() && ch.giochi && ch.giochi.length ? tb('giochi', 'Giochi', ch.giochi.length) : '') + (showT() && ch.schede && ch.schede.length ? tb('schede', 'Schede', ch.schede.length) : '') + '</div><div class="panel">';
     if (route.tab === 'teoria') {
       if (showT()) h += '<div class="board-bar"><button type="button" class="btn" data-act="board">🖥️ Modalità lavagna (proiezione)</button><span>Versione per schermo grande o proiettore: teoria ed esercizi in aula a tutto schermo, un passaggio alla volta, con caratteri regolabili. Frecce ← → per scorrere.</span></div>';
       h += ch.teoria.map(blockHTML).join('');
@@ -1557,10 +1623,23 @@ const NOTA = (function () {
       h += schedeHTML(ch);
     } else {
       const tab = route.tab === 'casa' ? 'casa' : 'aula';
-      h += '<div class="ex-h"><div><h2>' + (tab === 'aula' ? 'Esercizi in aula' : 'Esercizi a casa') + '</h2><p>' + (tab === 'aula' ? 'Da svolgere con l\'insegnante durante la lezione.' : 'Da svolgere da solo, a casa, per ripassare.') + '</p></div>';
-      h += '<div class="ex-dl"><button type="button" class="btn" data-act="dl" data-t="' + tab + '">Scheda da stampare</button>' + (showT() ? '<button type="button" class="btn ghost" data-act="dl" data-t="' + tab + '" data-sol="1">Scheda con soluzioni</button>' : '') + '</div></div>';
-      if (!ch[tab].length) h += '<p class="empty">Nessun esercizio in questa sezione.</p>';
-      h += ch[tab].map((e, i) => exHTML(ch, tab, e, i)).join('');
+      const dove = tab === 'aula' ? 'Da svolgere con l\'insegnante durante la lezione.' : 'Da svolgere da solo, a casa, per ripassare.';
+      if (DPE() && ch[tab].length) {
+        const nb = nBlk(ch, tab), b = curBlk(ch, tab), rg = blkRange(ch, tab, b);
+        if (nb > 1) h += '<div class="blk-tabs" role="group" aria-label="Esercizi">' + Array.from({ length: nb }, (x, q) => {
+          const r = blkRange(ch, tab, q); let dn = 0; for (let ii = r[0]; ii < r[1]; ii++) if (isDone(ch, tab, ii)) dn++;
+          return '<button type="button" class="blk-tab' + (q === b ? ' on' : '') + '" aria-pressed="' + (q === b) + '" data-act="blk" data-t="' + tab + '" data-b="' + q + '">Esercizio ' + esNum(ch, tab, q) + (isAll() ? '<small>' + dn + '/' + (r[1] - r[0]) + '</small>' : '<small>' + (r[1] - r[0]) + ' domande</small>') + '</button>';
+        }).join('') + '</div>';
+        h += '<div class="ex-h"><div><h2>Esercizio ' + esNum(ch, tab, b) + ' · ' + (tab === 'aula' ? 'in aula' : 'a casa') + '</h2><p>' + (rg[1] - rg[0]) + ' domande. ' + dove + '</p></div>';
+        h += '<div class="ex-dl"><button type="button" class="btn" data-act="dl" data-t="' + tab + '" data-b="' + b + '">Scheda da stampare</button>' + (showT() ? '<button type="button" class="btn ghost" data-act="dl" data-t="' + tab + '" data-b="' + b + '" data-sol="1">Scheda con soluzioni</button>' : '') + '</div></div>';
+        for (let ii = rg[0]; ii < rg[1]; ii++) h += exHTML(ch, tab, ch[tab][ii], ii);
+        if (b < nb - 1) h += '<div class="t-bar"><button type="button" class="btn" data-act="blk" data-t="' + tab + '" data-b="' + (b + 1) + '">Vai all\'esercizio ' + esNum(ch, tab, b + 1) + ' →</button></div>';
+      } else {
+        h += '<div class="ex-h"><div><h2>' + (tab === 'aula' ? 'Esercizi in aula' : 'Esercizi a casa') + '</h2><p>' + dove + '</p></div>';
+        h += '<div class="ex-dl"><button type="button" class="btn" data-act="dl" data-t="' + tab + '">Scheda da stampare</button>' + (showT() ? '<button type="button" class="btn ghost" data-act="dl" data-t="' + tab + '" data-sol="1">Scheda con soluzioni</button>' : '') + '</div></div>';
+        if (!ch[tab].length) h += '<p class="empty">Nessun esercizio in questa sezione.</p>';
+        h += ch[tab].map((e, i) => exHTML(ch, tab, e, i)).join('');
+      }
     }
     h += '</div>';
     if (canEd()) h += '<div class="t-bar"><button type="button" class="btn ghost" data-act="edit">Modifica questo capitolo</button></div>';
@@ -1661,9 +1740,28 @@ const NOTA = (function () {
     if (pg.busy && !pg.rows) return h + '<p class="empty">Caricamento…</p>';
     const rows = pg.rows || [];
     if (!rows.length) return h + '<p class="empty">Nessun allievo ha questa sezione abilitata. La segreteria li abilita dalla pagina «Allievi».</p>';
-    h += '<ul class="pg-list">' + rows.map(r => {
+    const pc = (a, b) => b ? Math.round(a / b * 100) : null;
+    const pcT = (a, b) => { const p = pc(a, b); return p == null ? '—' : p + '%'; };
+    const cls = p => p == null ? '' : p >= 80 ? 'ok' : p >= 60 ? 'mid' : 'low';
+    const attivi = rows.filter(r => r.tentate > 0 || r.fatti > 0);
+    const tTent = rows.reduce((s, r) => s + (r.tentate || 0), 0), tPrimo = rows.reduce((s, r) => s + (r.primo || 0), 0);
+    const sett = Date.now() - 7 * 86400000;
+    const recenti = rows.filter(r => r.quando && Date.parse(r.quando) >= sett).length;
+    h += '<div class="pg-sum"><div><b>' + rows.length + '</b><span>allievi con la sezione</span></div><div><b>' + attivi.length + '</b><span>hanno iniziato gli esercizi</span></div><div><b>' + recenti + '</b><span>attivi negli ultimi 7 giorni</span></div><div><b>' + pcT(tPrimo, tTent) + '</b><span>risposte giuste al primo tentativo (classe)</span></div></div>';
+    h += '<p class="hint">«Giuste al 1° tentativo» conta solo le domande a scelta: è la misura più fedele di quanto l\'allievo ha capito. «Tentativi per domanda» oltre 1,5 indica che va spesso a caso.</p>';
+    const sorted = rows.slice().sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
+    h += '<ul class="pg-list">' + sorted.map(r => {
       const p = r.totale ? Math.round(r.fatti / r.totale * 100) : 0;
-      return '<li><details><summary><span class="pg-n">' + esc(r.nome) + (r.stato !== 'attivo' ? ' <em class="tag off">sospeso</em>' : '') + '</span><span class="pg-c"></span><span class="pg-b">' + bar(r.fatti, r.totale) + '</span><span class="pg-p">' + r.fatti + '/' + r.totale + ' · ' + p + '%</span></summary><ol class="pg-ch">' + r.capitoli.map((c, i) => '<li><span>' + (i + 1) + '. ' + esc(c.titolo) + '</span>' + bar(c.fatti, c.totale) + '<small>' + c.fatti + '/' + c.totale + '</small></li>').join('') + '</ol></details></li>';
+      const ac = pc(r.primo, r.tentate);
+      const media = r.tentate ? (r.tentativi / r.tentate).toFixed(1).replace('.', ',') : '—';
+      let d = '<li><details><summary><span class="pg-n">' + esc(r.nome) + (r.stato !== 'attivo' ? ' <em class="tag off">sospeso</em>' : '') + '</span><span class="pg-c">' + (ac == null ? '' : 'esatte ' + ac + '%') + '</span><span class="pg-b">' + bar(r.fatti, r.totale) + '</span><span class="pg-p">' + r.fatti + '/' + r.totale + ' · ' + p + '%</span></summary>';
+      d += '<div class="pg-info"><span>Domande completate: <strong>' + r.fatti + ' su ' + r.totale + '</strong></span><span>Giuste al 1° tentativo: <strong>' + (r.tentate ? r.primo + ' su ' + r.tentate + ' (' + ac + '%)' : '—') + '</strong></span><span>Tentativi per domanda: <strong>' + media + '</strong></span><span>Ultima attività: <strong>' + fmtData(r.quando) + '</strong></span>' + (r.deboli && r.deboli.length ? '<span class="weak">Da ripassare: <strong>' + r.deboli.map(esc).join(', ') + '</strong></span>' : '') + '</div>';
+      d += '<table class="pg-tab"><thead><tr><th>Capitolo</th><th>Completate</th><th>Esatte 1° tent.</th><th class="hide-s">Esercizi</th></tr></thead><tbody>' + r.capitoli.map((c, i) => {
+        const ca = pc(c.primo, c.tentate);
+        const es = (c.esercizi || []).map(e => { const ep = pc(e.primo, e.tentate); return '<span class="' + cls(ep) + '" title="Esercizio ' + e.n + ': ' + e.fatti + ' su ' + e.totale + ' completate, ' + (e.tentate ? e.primo + ' giuste al primo tentativo su ' + e.tentate : 'non iniziato') + '">Es.' + e.n + ' ' + e.fatti + '/' + e.totale + (ep == null ? '' : ' · ' + ep + '%') + '</span>'; }).join('');
+        return '<tr><td>' + (i + 1) + '. ' + esc(c.titolo) + '</td><td class="n">' + c.fatti + '/' + c.totale + '</td><td class="n"><span class="pg-es"><span class="' + cls(ca) + '">' + (ca == null ? '—' : ca + '%' + ' (' + c.primo + '/' + c.tentate + ')') + '</span></span></td><td class="hide-s"><div class="pg-es">' + (es || '—') + '</div></td></tr>';
+      }).join('') + '</tbody></table></details></li>';
+      return d;
     }).join('') + '</ul>';
     return h;
   }
@@ -2105,18 +2203,19 @@ const NOTA = (function () {
         const d = el.dataset, c = DATA.capitoli.filter(x => x.id === d.ch)[0]; if (!c) break;
         const i = +d.i, j = +d.j, k = exKey(c, d.t, i);
         const keep = window.scrollY;
-        if (!isAll()) { const e = c[d.t][i]; res[k] = { j: j, s: j === e.ok ? 'ok' : 'no' }; expl[k] = e.sol || ''; render(); window.scrollTo(0, keep); break; }
+        if (!isAll()) { const e = c[d.t][i]; res[k] = { j: j, s: j === e.ok ? 'ok' : 'no', why: j === e.ok ? '' : ((e.perche || [])[j] || '') }; expl[k] = e.sol || ''; render(); window.scrollTo(0, keep); break; }
         if (busy[k]) break;
         tries[k] = (tries[k] || 0) + 1;
         busy[k] = true; res[k] = { j: j, s: 'wait' }; render(); window.scrollTo(0, keep);
         tcall('verificaRisposta', SEZ.id, c.id, d.t, i, j).then(r => {
           busy[k] = false;
-          if (r.giusta) { res[k] = { j: j, s: 'ok' }; expl[k] = r.spiegazione || ''; markDone(c.id, d.t, i, true); inviaTest(c, d.t); } else { res[k] = { j: j, s: 'no' }; }
+          if (r.giusta) { res[k] = { j: j, s: 'ok' }; expl[k] = r.spiegazione || ''; markDone(c.id, d.t, i, true); inviaTest(c, d.t, i); } else { res[k] = { j: j, s: 'no', why: r.perche || '' }; }
         }).catch(e => { busy[k] = false; delete res[k]; toast(e.message); }).then(() => { if (SESS) { const y = window.scrollY; render(); window.scrollTo(0, y); } });
         break;
       }
       case 'sch': { const i = +el.dataset.i; if (ch.schede && ch.schede[i]) openHtml(schedaDoc(ch, i, !!el.dataset.sol), 'DomusForm-Kids-Cap' + (route.i + 1) + '-Scheda' + (i + 1) + (el.dataset.sol ? '-Soluzioni' : '') + '.html'); break; }
-      case 'dl': openSheet(ch, el.dataset.t, !!el.dataset.sol); break;
+      case 'dl': openSheet(ch, el.dataset.t, !!el.dataset.sol, el.dataset.b != null ? +el.dataset.b : null); break;
+      case 'blk': if (ch) { blkSel[ch.id + '-' + el.dataset.t] = +el.dataset.b; render(); const pn = $('.tabs'); if (pn) pn.scrollIntoView({ block: 'start' }); } break;
       case 'board': boardOpen(DATA.capitoli[route.i], route.i + 1); break;
       case 'edit': editing = true; saveMsg = ''; render(); window.scrollTo({ top: 0 }); break;
       case 'done-edit': editing = false; render(); window.scrollTo({ top: 0 }); break;
@@ -2174,7 +2273,7 @@ const NOTA = (function () {
     if (el.dataset.act === 'mark') {
       const d = el.dataset, v = el.checked;
       markDone(d.ch, d.t, +d.i, v); updateProgress();
-      tcall('segnaCompletato', SEZ.id, d.ch, d.t, +d.i, v).then(() => { if (v) { const cc = DATA.capitoli.filter(x => x.id === d.ch)[0]; if (cc) inviaTest(cc, d.t); } }).catch(e => { markDone(d.ch, d.t, +d.i, !v); el.checked = !v; updateProgress(); toast(e.message); });
+      tcall('segnaCompletato', SEZ.id, d.ch, d.t, +d.i, v).then(() => { if (v) { const cc = DATA.capitoli.filter(x => x.id === d.ch)[0]; if (cc) inviaTest(cc, d.t, +d.i); } }).catch(e => { markDone(d.ch, d.t, +d.i, !v); el.checked = !v; updateProgress(); toast(e.message); });
     } else if (el.dataset.ed && (el.tagName === 'SELECT' || el.type === 'number')) onEdit(el);
     else if (el.dataset.mat === 'gid') { MAT.gid = el.value; loadMat(''); }
     else if (el.dataset.act === 'mat-up') upMat(el);
