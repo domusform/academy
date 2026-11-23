@@ -405,6 +405,19 @@ a.btn { display: inline-flex; align-items: center; text-decoration: none; }
 a.mini { display: inline-flex; align-items: center; text-decoration: none; }
 .crumbs { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 15px; }
 .as-link { background: none; border: 0; padding: 4px 2px; font: inherit; color: var(--accent); cursor: pointer; text-decoration: underline; }
+.as-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.as-it { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; background: var(--fig); }
+.as-it.done { opacity: .75; }
+.as-it h3 { margin: 0 0 4px; font-size: 1.02rem; }
+.as-meta { font-size: .85rem; color: var(--mute, #667); margin: 0 0 6px; }
+.as-it ul.as-v { margin: 6px 0; padding-left: 1.3em; }
+.as-it ul.as-v li { margin: 2px 0; }
+.as-links { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.as-links a { display: inline-block; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); text-decoration: none; word-break: break-all; }
+.as-act { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
+.as-rows { display: grid; gap: 6px; margin: 4px 0 8px; }
+.as-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.as-row input { flex: 1 1 180px; min-width: 0; }
 .mat-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
 .mat-f { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; background: var(--fig); min-width: 0; }
 .mat-n { display: grid; min-width: 0; overflow-wrap: anywhere; font-weight: 700; text-align: left; background: none; border: 0; font-family: inherit; font-size: 1rem; color: inherit; cursor: pointer; }
@@ -1898,7 +1911,7 @@ const NOTA = (function () {
       h += waiting();
       if (PORTAL && PORTAL.secs) {
         h += doc ? (PORTAL.secs.length ? '<section class="card"><h2>Teoria e armonia · supporto didattico</h2><p class="note">Materiale messo a disposizione dei docenti come supporto alla didattica: teoria, esercizi con soluzioni, note per il docente, giochi e schede. È in sola consultazione.</p><div class="sec-grid">' + PORTAL.secs.map(s => secCard(s)).join('') + '</div></section>' : '') + (PORTAL.grp && PORTAL.grp.length ? '' : (PORTAL.secs.length ? '' : '<p class="empty">Non hai ancora nessun gruppo assegnato. Scrivi alla segreteria.</p>')) : PORTAL.secs.length ? '<div class="sec-grid">' + PORTAL.secs.map(s => secCard(s)).join('') + '</div>' : '<p class="empty">Non hai ancora nessuna sezione abilitata. Scrivi alla segreteria.</p>';
-        if (PORTAL.grp && PORTAL.grp.length) h += '<section class="card"><h2>Materiali</h2><p>Spartiti, basi e documenti dei tuoi gruppi: ' + PORTAL.grp.map(g => esc(g.nome)).join(', ') + '.</p><div class="row">' + go_('materiali') + ' class="btn">Apri i materiali</a></div></section>';
+        if (PORTAL.grp && PORTAL.grp.length) h += '<section class="card"><h2>Materiali</h2><p>Spartiti, basi, documenti e assegni delle lezioni dei tuoi gruppi: ' + PORTAL.grp.map(g => esc(g.nome)).join(', ') + '.</p><div class="row">' + go_('materiali') + ' class="btn">Apri i materiali</a></div></section>';
       }
       return h;
     }
@@ -2007,6 +2020,9 @@ const NOTA = (function () {
         fld('Indirizzo della piattaforma da scrivere nel messaggio (https://…)', '<input name="link" value="' + esc(s.link) + '" placeholder="https://academy.domusform.it/" inputmode="url" autocapitalize="none">') +
         '<p class="note">Se lasci vuoto viene usato l\'indirizzo diretto dell\'app Google. Per il sito di Domus Form scrivi https://academy.domusform.it/</p>' +
         (adm.setMsg ? '<p class="alert ' + (adm.setMsgBad ? 'bad' : 'ok') + '" role="status">' + esc(adm.setMsg) + '</p>' : '') + '<div class="row"><button class="btn" type="submit">Salva il messaggio</button></div></form></section>';
+      h += '<section class="card"><h2>Recupero password della segreteria</h2><form data-form="emailrec"><p class="note">Se chi lavora in segreteria dimentica la password, dalla pagina di accesso può chiedere un link via email. Il link arriva a questo indirizzo' + (s.emailRecuperoPers ? '' : ' (ora è l\'account Google che gestisce l\'app)') + ': <strong>' + esc(s.emailRecupero || '—') + '</strong></p>' +
+        fld('Indirizzo email per il recupero (lascia vuoto per usare l\'account Google dell\'app)', '<input name="email" type="email" value="' + esc(s.emailRecuperoPers ? s.emailRecupero : '') + '" placeholder="segreteria@domusform.it" autocapitalize="none" spellcheck="false">') +
+        '<div class="row"><button class="btn" type="submit">Salva l\'indirizzo</button></div></form></section>';
     }
     return h;
   }
@@ -2018,16 +2034,72 @@ const NOTA = (function () {
     if (gid) MAT.gid = gid;
     if (!MAT.gid || !g.some(x => x.id === MAT.gid)) MAT.gid = g.length ? g[0].id : '';
     if (!MAT.gid) { MAT.cart = null; render(); return; }
-    loadMat('');
+    loadMat(''); loadAss();
   }
   function loadMat(idCartella) {
     MAT.busy = true; MAT.err = ''; MAT.del = null; render();
     tcall('listaMateriali', MAT.gid, idCartella || '').then(r => { MAT.cart = r; }).catch(e => { MAT.err = e.message; })
       .then(() => { MAT.busy = false; if (route.v === 'materiali') render(); });
   }
+  /* ---------- assegni delle lezioni ---------- */
+  let ASS = null;
+  const oggiISO = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+  const dataIt = iso => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); if (!m) return iso || ''; const d = new Date(+m[1], +m[2] - 1, +m[3]); return d.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }); };
+  const nuovoAss = () => ({ id: '', data: oggiISO(), titolo: '', voci: ['', ''], link: [{ t: '', u: '' }] });
+  function loadAss() {
+    if (!MAT || !MAT.gid) return;
+    const gid = MAT.gid;
+    ASS = { gid: gid, list: (ASS && ASS.gid === gid) ? ASS.list : null, busy: true, err: '', form: (ASS && ASS.gid === gid) ? ASS.form : null, del: null, save: false, aperti: (ASS && ASS.aperti) || 0 };
+    tcall('elencoAssegni', gid).then(r => { if (!ASS || ASS.gid !== gid) return; ASS.list = r.assegni; ASS.scrive = r.puoScrivere; })
+      .catch(e => { if (ASS) ASS.err = e.message; }).then(() => { if (ASS && ASS.gid === gid) { ASS.busy = false; if (route.v === 'materiali') render(); } });
+  }
+  function assFormHTML(f) {
+    return '<form class="u-edit" data-form="assegno" autocomplete="off"><h3 class="area-title">' + (f.id ? 'Modifica assegno' : 'Nuovo assegno') + '</h3>' +
+      '<div class="nu-grid">' + fld('Data della lezione', '<input type="date" name="data" value="' + esc(f.data) + '" required>') + fld('Titolo (facoltativo)', '<input name="titolo" value="' + esc(f.titolo) + '" maxlength="120" placeholder="Es. Studio per giovedì">') + '</div>' +
+      '<fieldset class="chk-set"><legend>Cosa fare (una voce per riga dell\'elenco)</legend><div class="as-rows">' +
+      f.voci.map((v, i) => '<div class="as-row"><span aria-hidden="true">•</span><input name="voce" data-i="' + i + '" value="' + esc(v) + '" maxlength="300" aria-label="Voce ' + (i + 1) + '" placeholder="Es. Scala di Do maggiore, mani separate, 5 volte"><button type="button" class="mini" data-act="as-rm" data-k="voci" data-i="' + i + '" aria-label="Togli la voce ' + (i + 1) + '">✕</button></div>').join('') +
+      '</div><button type="button" class="btn ghost sm" data-act="as-add" data-k="voci">+ Aggiungi voce</button></fieldset>' +
+      '<fieldset class="chk-set"><legend>Link (video, basi, spartiti online…)</legend><div class="as-rows">' +
+      f.link.map((l, i) => '<div class="as-row"><input name="lt" data-i="' + i + '" value="' + esc(l.t) + '" maxlength="100" placeholder="Descrizione (es. Video della lezione)" aria-label="Descrizione link ' + (i + 1) + '"><input name="lu" data-i="' + i + '" value="' + esc(l.u) + '" inputmode="url" autocapitalize="none" spellcheck="false" placeholder="https://…" aria-label="Indirizzo link ' + (i + 1) + '"><button type="button" class="mini" data-act="as-rm" data-k="link" data-i="' + i + '" aria-label="Togli il link ' + (i + 1) + '">✕</button></div>').join('') +
+      '</div><button type="button" class="btn ghost sm" data-act="as-add" data-k="link">+ Aggiungi link</button></fieldset>' +
+      '<div class="row"><button class="btn" type="submit" ' + (ASS.save ? 'disabled' : '') + '>' + (ASS.save ? 'Salvo…' : (f.id ? 'Salva le modifiche' : 'Pubblica l\'assegno')) + '</button><button type="button" class="btn ghost" data-act="as-cancel">Annulla</button></div></form>';
+  }
+  function assegniHTML() {
+    if (!ASS || ASS.gid !== MAT.gid) return '';
+    const staff = isStaff() || isSeg();
+    let h = '<section class="card"><h2>Assegni delle lezioni</h2>';
+    if (ASS.err) h += '<p class="alert bad" role="alert">' + esc(ASS.err) + '</p>';
+    if (!ASS.list) return h + '<p class="empty">Caricamento…</p></section>';
+    if (ASS.scrive) h += ASS.form ? assFormHTML(ASS.form) : '<div class="row"><button type="button" class="btn" data-act="as-new">+ Nuovo assegno</button></div>';
+    if (!ASS.list.length) return h + '<p class="empty">' + (ASS.scrive ? 'Nessun assegno pubblicato per questo gruppo.' : 'Il docente non ha ancora pubblicato assegni per questo gruppo.') + '</p></section>';
+    const max = ASS.aperti ? ASS.list.length : Math.min(ASS.list.length, 6);
+    h += '<ul class="as-list">' + ASS.list.slice(0, max).map(a => {
+      let x = '<li class="as-it' + (a.fatto ? ' done' : '') + '"><h3>' + esc(a.titolo || 'Assegno') + '</h3><p class="as-meta">Lezione di ' + esc(dataIt(a.data)) + (a.autore ? ' · ' + esc(a.autore) : '') + '</p>';
+      if (a.voci.length) x += '<ul class="as-v">' + a.voci.map(v => '<li>' + esc(v) + '</li>').join('') + '</ul>';
+      if (a.link.length) x += '<div class="as-links">' + a.link.map(l => '<a href="' + esc(l.u) + '" target="_blank" rel="noopener noreferrer">🔗 ' + esc(l.t || l.u) + '</a>').join('') + '</div>';
+      x += '<div class="as-act">';
+      if (!ASS.scrive) x += '<label class="chk"><input type="checkbox" data-act="as-fatto" data-id="' + esc(a.id) + '" ' + (a.fatto ? 'checked' : '') + '> Fatto</label>';
+      else {
+        const n = (a.fattiNomi || []).length;
+        x += '<span class="as-meta">Fatto da ' + n + (a.iscritti ? ' di ' + a.iscritti : '') + (n ? ': ' + esc(a.fattiNomi.join(', ')) : '') + '</span>';
+        if (a.mio) x += '<button type="button" class="mini" data-act="as-edit" data-id="' + esc(a.id) + '">Modifica</button><button type="button" class="mini ' + (ASS.del === a.id ? 'bad' : '') + '" data-act="as-del" data-id="' + esc(a.id) + '">' + (ASS.del === a.id ? 'Conferma: elimina' : 'Elimina') + '</button>';
+      }
+      return x + '</div></li>';
+    }).join('') + '</ul>';
+    if (ASS.list.length > max) h += '<div class="row"><button type="button" class="btn ghost sm" data-act="as-more">Mostra tutti gli assegni (' + ASS.list.length + ')</button></div>';
+    return h + '</section>';
+  }
+  function leggiAssForm(form) {
+    const f = ASS.form; if (!form || !f) return;
+    f.data = form.elements.data.value; f.titolo = form.elements.titolo.value;
+    f.voci = $$('input[name="voce"]', form).map(i => i.value);
+    const lt = $$('input[name="lt"]', form), lu = $$('input[name="lu"]', form);
+    f.link = lu.map((u, i) => ({ t: lt[i] ? lt[i].value : '', u: u.value }));
+  }
   const dim = n => n > 1048576 ? (n / 1048576).toFixed(1).replace('.', ',') + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
-  function materialiView() {
-    let h = pageHead('Domus Form Academy', 'Materiali', 'Spartiti, basi, documenti e registrazioni dei tuoi gruppi.') + waiting();
+  function materialiView() { const v = materialiBase(); return (MAT && MAT.gid && PORTAL && PORTAL.grp && PORTAL.grp.length) ? v + assegniHTML() : v; }
+  function materialiBase() {
+    let h = pageHead('Domus Form Academy', 'Materiali', 'Spartiti, basi, documenti, registrazioni e assegni delle lezioni dei tuoi gruppi.') + waiting();
     const g = (PORTAL && PORTAL.grp) || [];
     if (!PORTAL || !PORTAL.grp) return h;
     if (!g.length) return h + '<p class="empty">Non hai ancora nessun gruppo abilitato. Scrivi alla segreteria.</p>';
@@ -2091,13 +2163,34 @@ const NOTA = (function () {
 
   /* ---------- accesso ---------- */
   function brandHTML() { return (window.DFA_LOGO ? '<span class="mark logo"><img src="' + window.DFA_LOGO + '" alt="Domus Form"></span>' : '<span class="mark">' + glyphIcon('gclef', 34) + '</span>') + '<span class="brand-t"><strong>Domus Form</strong> Academy<small>Piattaforma didattica</small></span>'; }
+  let RESET = null;
+  function resetView() {
+    return '<main class="gate"><div class="gate-card"><div class="brand big">' + brandHTML() + '</div><h1>Nuova password</h1><p class="lead sm">Scegli la nuova password per la tua utenza. Almeno 8 caratteri.</p><form data-form="reset" autocomplete="off">' +
+      fld('Nuova password', '<input name="nuova" type="password" autocomplete="new-password" required minlength="8">') +
+      fld('Ripeti la nuova password', '<input name="ripeti" type="password" autocomplete="new-password" required minlength="8">') +
+      '<label class="chk"><input type="checkbox" data-act="showpw"> Mostra le password</label>' +
+      (pw.msg ? '<p class="alert bad" role="alert">' + esc(pw.msg) + '</p>' : '') +
+      '<div class="row"><button class="btn" type="submit" ' + (pw.busy ? 'disabled' : '') + '>' + (pw.busy ? 'Salvo…' : 'Salva e entra') + '</button><button type="button" class="btn ghost" data-act="reset-cancel">Annulla</button></div></form></div></main>';
+  }
+  function recuperoLoginView() {
+    const fatto = login.recMsg === 'ok';
+    return '<main class="gate"><div class="gate-card"><div class="brand big">' + brandHTML() + '</div><h1>Password dimenticata</h1>' +
+      '<p class="lead sm"><strong>Allievi e docenti:</strong> scrivete alla segreteria di Domus Form Academy, che vi manda subito una nuova password su WhatsApp.</p>' +
+      '<p class="lead sm"><strong>Segreteria:</strong> scrivi il tuo nome utente. Arriva un\'email con un link per scegliere la nuova password (vale 30 minuti).</p>' +
+      (fatto ? '<p class="alert ok" role="status">Se il nome utente è di un\'utenza di segreteria, l\'email è partita. Controlla la posta (anche lo spam) e apri il link da questo dispositivo.</p>' :
+        '<form data-form="recupero" autocomplete="on">' + fld('Nome utente', '<input name="utente" value="' + esc(login.utente) + '" autocomplete="username" autocapitalize="none" spellcheck="false" required>') +
+        '<button class="btn wide" type="submit" ' + (login.busy ? 'disabled' : '') + '>' + (login.busy ? 'Invio…' : 'Inviami il link via email') + '</button></form>') +
+      '<p class="note"><button type="button" class="as-link" data-act="rec-close">← Torna all\'accesso</button></p></div></main>';
+  }
   function loginView() {
+    if (RESET) return resetView();
+    if (login.rec) return recuperoLoginView();
     return '<main class="gate"><div class="gate-card"><div class="brand big">' + brandHTML() + '</div><h1>Accedi</h1><p class="lead sm">Usa il nome utente e la password che hai ricevuto da Domus Form Academy su WhatsApp.</p><form data-form="login" autocomplete="on">' +
       fld('Nome utente', '<input name="utente" value="' + esc(login.utente) + '" autocomplete="username" autocapitalize="none" spellcheck="false" required>') +
       fld('Password', '<input name="password" type="password" autocomplete="current-password" required>') +
       '<label class="chk"><input type="checkbox" data-act="showpw"> Mostra la password</label>' +
       (login.msg ? '<p class="alert bad" role="alert">' + esc(login.msg) + '</p>' : '') +
-      '<button class="btn wide" type="submit" ' + (login.busy ? 'disabled' : '') + '>' + (login.busy ? 'Accesso in corso…' : 'Entra') + '</button></form><p class="note">Non riesci a entrare o hai dimenticato la password? Scrivi alla segreteria: te ne manda una nuova.</p></div></main>';
+      '<button class="btn wide" type="submit" ' + (login.busy ? 'disabled' : '') + '>' + (login.busy ? 'Accesso in corso…' : 'Entra') + '</button></form><p class="note"><button type="button" class="as-link" data-act="rec-open">Hai dimenticato la password?</button></p></div></main>';
   }
   function pwView(forced) {
     return '<main class="gate"><div class="gate-card"><div class="brand big">' + brandHTML() + '</div><h1>' + (forced ? 'Scegli la tua password' : 'Cambia password') + '</h1><p class="lead sm">' + (forced ? 'È il tuo primo accesso: scegli una password solo tua. Almeno 8 caratteri; ti conviene una frase facile da ricordare.' : 'Almeno 8 caratteri. Dopo il cambio dovrai rientrare con la nuova password sugli altri dispositivi.') + '</p><form data-form="password" autocomplete="off">' +
@@ -2196,6 +2289,7 @@ const NOTA = (function () {
       case 'logout': expire('Sei uscito. A presto!'); pwOpen = false; lastPwd = ''; return;
       case 'pw-open': pwOpen = true; pw = { msg: '', busy: false }; render(); return;
       case 'pw-cancel': pwOpen = false; render(); return;
+      case 'reset-cancel': RESET = null; pw = { msg: '', busy: false }; render(); return;
       case 'tab': route.tab = el.dataset.t; render(); window.scrollTo({ top: 0 }); break;
       case 'mode': mode = el.dataset.m; if (mode === 'allievo') editing = false; render(); break;
       case 'idx': document.body.classList.toggle('idx-open'); render(); break;
@@ -2233,6 +2327,20 @@ const NOTA = (function () {
       case 'mat-open': MAT.msg = ''; loadMat(el.dataset.id); return;
       case 'mat-go': go('materiali'); MAT = MAT || {}; MAT.gid = el.dataset.id; return;
       case 'mat-dl': dlMat(el.dataset.id); return;
+      case 'as-new': ASS.form = nuovoAss(); ASS.del = null; render(); return;
+      case 'as-cancel': ASS.form = null; render(); return;
+      case 'as-more': ASS.aperti = 1; render(); return;
+      case 'as-add': { leggiAssForm(el.closest('form')); const k = el.dataset.k; if (k === 'voci' && ASS.form.voci.length < 20) ASS.form.voci.push(''); if (k === 'link' && ASS.form.link.length < 10) ASS.form.link.push({ t: '', u: '' }); render(); const ins = $$('input[name="' + (k === 'voci' ? 'voce' : 'lt') + '"]'); if (ins.length) ins[ins.length - 1].focus(); return; }
+      case 'as-rm': { leggiAssForm(el.closest('form')); ASS.form[el.dataset.k].splice(+el.dataset.i, 1); render(); return; }
+      case 'as-edit': { const a = ASS.list.filter(x => x.id === el.dataset.id)[0]; if (!a) return; ASS.form = { id: a.id, data: a.data, titolo: a.titolo, voci: a.voci.length ? a.voci.slice() : [''], link: a.link.length ? a.link.map(l => ({ t: l.t, u: l.u })) : [{ t: '', u: '' }] }; render(); const fm = $('[data-form="assegno"]'); if (fm) fm.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+      case 'as-del': {
+        const id = el.dataset.id;
+        if (ASS.del !== id) { ASS.del = id; render(); return; }
+        tcall('eliminaAssegno', ASS.gid, id).then(() => { toast('Assegno eliminato.'); loadAss(); }).catch(e => { ASS.del = null; toast(e.message); render(); });
+        return;
+      }
+      case 'rec-open': login.rec = true; login.recMsg = ''; login.msg = ''; render(); return;
+      case 'rec-close': login.rec = false; render(); return;
       case 'mat-del': {
         const id = el.dataset.id;
         if (MAT.del !== id) { MAT.del = id; render(); return; }
@@ -2275,7 +2383,12 @@ const NOTA = (function () {
       markDone(d.ch, d.t, +d.i, v); updateProgress();
       tcall('segnaCompletato', SEZ.id, d.ch, d.t, +d.i, v).then(() => { if (v) { const cc = DATA.capitoli.filter(x => x.id === d.ch)[0]; if (cc) inviaTest(cc, d.t, +d.i); } }).catch(e => { markDone(d.ch, d.t, +d.i, !v); el.checked = !v; updateProgress(); toast(e.message); });
     } else if (el.dataset.ed && (el.tagName === 'SELECT' || el.type === 'number')) onEdit(el);
-    else if (el.dataset.mat === 'gid') { MAT.gid = el.value; loadMat(''); }
+    else if (el.dataset.mat === 'gid') { MAT.gid = el.value; ASS = null; loadMat(''); loadAss(); }
+    else if (el.dataset.act === 'as-fatto') {
+      const id = el.dataset.id, v = el.checked, a = ASS && ASS.list && ASS.list.filter(x => x.id === id)[0];
+      if (a) a.fatto = v;
+      tcall('segnaAssegno', ASS.gid, id, v).then(() => { render(); if (v) toast('Segnato come fatto.'); }).catch(e => { if (a) a.fatto = !v; el.checked = !v; toast(e.message); });
+    }
     else if (el.dataset.act === 'mat-up') upMat(el);
     else if (el.dataset.adm) { adm[el.dataset.adm] = el.value; render(); }
     else if (el.dataset.pg) { pg[el.dataset.pg] = el.value; render(); }
@@ -2358,6 +2471,33 @@ const NOTA = (function () {
       adm.gMsg = '';
       tcall('salvaGruppo', form.dataset.id, form.dataset.nome, fe.link.value, null).then(() => refreshSeg()).then(() => { adm.gBad = false; adm.gMsg = 'Cartella collegata.'; })
         .catch(e => { adm.gBad = true; adm.gMsg = e.message; }).then(render);
+    } else if (kind === 'assegno') {
+      if (ASS.save) return;
+      leggiAssForm(form);
+      const f = ASS.form;
+      const dati = { id: f.id, data: f.data, titolo: f.titolo.trim(), voci: f.voci.map(v => v.trim()).filter(Boolean), link: f.link.filter(l => l.u.trim() || l.t.trim()).map(l => ({ t: l.t.trim(), u: /^https?:\/\//i.test(l.u.trim()) || !l.u.trim() ? l.u.trim() : 'https://' + l.u.trim() })) };
+      ASS.save = true; ASS.err = ''; render();
+      tcall('salvaAssegno', ASS.gid, dati).then(() => { ASS.form = null; ASS.save = false; toast(f.id ? 'Assegno aggiornato.' : 'Assegno pubblicato: gli allievi del gruppo lo vedono subito.'); loadAss(); })
+        .catch(e => { ASS.save = false; ASS.err = e.message; render(); });
+    } else if (kind === 'recupero') {
+      if (login.busy) return;
+      const utente = fe.utente.value.trim(); if (!utente) return;
+      login.utente = utente; login.busy = true; render();
+      api('recuperoPassword', utente).then(() => { login.recMsg = 'ok'; }).catch(() => { login.recMsg = 'ok'; }).then(() => { login.busy = false; render(); });
+    } else if (kind === 'reset') {
+      if (pw.busy) return;
+      const nuova = fe.nuova.value;
+      if (nuova !== fe.ripeti.value) { pw.msg = 'Le due password non coincidono.'; render(); return; }
+      pw.busy = true; pw.msg = ''; render();
+      api('reimpostaPassword', RESET, nuova).then(r => {
+        RESET = null; SESS = { token: r.token, user: r.utente }; lastPwd = '';
+        try { localStorage.setItem(KEY_S, r.token); } catch (e) { }
+        pw = { msg: '', busy: false }; startCourse(); toast('Password cambiata. Benvenuto!');
+      }).catch(e => { pw.busy = false; pw.msg = e.message; render(); });
+    } else if (kind === 'emailrec') {
+      adm.setMsg = ''; adm.setMsgBad = false;
+      tcall('salvaEmailRecupero', fe.email.value.trim()).then(r => { adm.set.emailRecupero = r.email; adm.set.emailRecuperoPers = r.personalizzata; adm.setMsg = 'Indirizzo di recupero salvato.'; })
+        .catch(e => { adm.setMsg = e.message; adm.setMsgBad = true; }).then(render);
     } else if (kind === 'cartella') {
       tcall('nuovaCartellaMateriali', MAT.gid, MAT.cart.cartella.id, fe.nome.value).then(() => { MAT.msg = 'Cartella creata.'; loadMat(MAT.cart.cartella.id); }).catch(e => toast(e.message));
     } else if (kind === 'modello') {
@@ -2383,7 +2523,15 @@ const NOTA = (function () {
       return (a && a[0] && a[1]) ? { u: String(a[0]), p: String(a[1]) } : null;
     } catch (e) { return null; }
   }
+  function codiceReset() {
+    let h = ''; try { h = location.hash || ''; } catch (e) { }
+    const m = /^#reset=([A-Za-z0-9]{40})$/.exec(h); if (!m) return null;
+    try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { }
+    return m[1];
+  }
   function boot() {
+    const rc = codiceReset();
+    if (rc) { try { localStorage.removeItem(KEY_S); } catch (e) { } RESET = rc; pw = { msg: '', busy: false }; render(); api('ping').catch(() => { }); return; }
     const acc = accessoDaLink();
     if (acc) {
       try { localStorage.removeItem(KEY_S); } catch (e) { }
@@ -2405,7 +2553,7 @@ const NOTA = (function () {
       if (SESS.user.cambio) { pw = { msg: '', busy: false }; render(); } else startCourse();
     }).catch(() => { try { localStorage.removeItem(KEY_S); } catch (e) { } render(); });
   }
-  window.addEventListener('hashchange', () => { if (/^#acc=/.test(location.hash)) location.reload(); });
+  window.addEventListener('hashchange', () => { if (/^#(acc|reset)=/.test(location.hash)) location.reload(); });
   boot();
 })();
 
