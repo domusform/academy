@@ -195,6 +195,19 @@ tbody tr:last-child > * { border-bottom: 0; }
 .opt.right { background: var(--ok-soft); border-color: var(--ok); }
 .opt.wrong { background: var(--bad-soft); border-color: var(--bad); }
 .opt.key { border-color: var(--ok); border-style: dashed; }
+.opt.sel { border-color: var(--accent); background: var(--surface); box-shadow: 0 0 0 2px var(--accent) inset; }
+.opt.sel .opt-l { background: var(--accent); color: #fff; border-color: var(--accent); }
+.opt.lock { cursor: default; }
+.opt.lock:hover { border-color: var(--line); }
+.opt.right.lock:hover { border-color: var(--ok); } .opt.wrong.lock:hover { border-color: var(--bad); }
+.fb.none { color: var(--bad); font-weight: 700; }
+.ts-bar { margin: 22px 0 6px; padding: 16px 18px; border: 2px solid var(--line); border-radius: 14px; background: var(--surface); display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+.ts-bar p { margin: 0; font-weight: 700; }
+.ts-bar small { display: block; font-weight: 600; color: var(--mute, #667); }
+.ts-res { margin: 0 0 16px; padding: 16px 18px; border-radius: 14px; border: 2px solid var(--ok); background: var(--ok-soft); }
+.ts-res.mid { border-color: var(--accent); background: var(--surface); }
+.ts-res h3 { margin: 0 0 4px; font-size: 1.15rem; }
+.ts-res p { margin: 0 0 8px; }
 .fb { min-height: 1.6em; margin: 10px 0 0; font-size: 15px; }
 .fb.ok { color: var(--ok); }
 .fb.no { color: var(--bad); font-weight: 700; }
@@ -931,6 +944,7 @@ const NOTA = (function () {
   let route = { v: 'portal', i: 0, tab: 'teoria' };
   let editing = false, dirty = false, saveMsg = '', pendingDelete = null, editOnArrive = false, leaveArmed = false;
   let res = {}, expl = {}, busy = {};      // risposte a scelta (solo in memoria)
+  let sel = {}, testArm = {}, testRes = {}; // risposte scelte ma non ancora confermate, conferme «armate», ultimo risultato per test
   let tries = {}, savedT = {};              // tentativi per esercizio e test già salvati (solo in memoria)
   let notes = {};                          // risposte aperte (solo in questo browser)
   let lastPwd = '';
@@ -1412,25 +1426,120 @@ const NOTA = (function () {
     h += '<div class="ex-q">' + md(e.q) + '</div>';
     if (e.staff) h += '<figure class="fig">' + staff(e.staff, 'Pentagramma dell\'esercizio ' + (i + 1)) + '</figure>';
     if (e.tipo === 'scelta') {
-      const r = res[k];
+      const r = res[k], lock = !!r || !!busy[k];
       h += '<div class="opts" role="group" aria-label="Risposte">' + e.opz.map((o, j) => {
-        let cls = 'opt';
+        let cls = 'opt' + (lock ? ' lock' : '');
         if (r && r.j === j) cls += r.s === 'ok' ? ' right' : r.s === 'no' ? ' wrong' : '';
+        else if (!r && sel[k] === j) cls += ' sel';
         if (showT() && j === e.ok) cls += ' key';
-        return '<button type="button" class="' + cls + '" data-act="pick" data-ch="' + esc(ch.id) + '" data-t="' + tab + '" data-i="' + i + '" data-j="' + j + '"' + (busy[k] ? ' disabled' : '') + '><span class="opt-l">' + ('ABCD'[j] || (j + 1)) + '</span><span>' + esc(o) + '</span></button>';
+        return '<button type="button" class="' + cls + '" data-act="pick" data-ch="' + esc(ch.id) + '" data-t="' + tab + '" data-i="' + i + '" data-j="' + j + '" aria-pressed="' + (!r && sel[k] === j) + '"' + (lock ? ' aria-disabled="true"' : '') + '><span class="opt-l">' + ('ABCD'[j] || (j + 1)) + '</span><span>' + esc(o) + '</span></button>';
       }).join('') + '</div>';
       let fb = '', fc = '';
       if (r && r.s === 'ok') { fc = 'ok'; fb = '<strong>Esatto!</strong> ' + esc(expl[k] || ''); }
-      else if (r && r.s === 'no') { fc = 'no'; fb = r.why ? 'Non è questa.<span class="why">' + esc(r.why) + '</span>' : 'Non è questa. Rileggi la domanda e riprova.'; }
-      else if (r && r.s === 'wait') { fb = 'Controllo…'; }
-      else if (isAll() && isDone(ch, tab, i)) { fc = 'ok'; fb = '<strong>Già risolto.</strong> Puoi rispondere di nuovo per rileggere la spiegazione.'; }
+      else if (r && r.s === 'no') { fc = 'no'; fb = r.why ? 'Sbagliata.<span class="why">' + esc(r.why) + '</span>' : 'Sbagliata. Rileggi la domanda e la teoria.'; }
+      else if (r && r.s === 'none') { fc = 'none'; fb = 'Senza risposta.'; }
+      else if (busy[k]) { fb = 'Correzione in corso…'; }
+      else if (isAll() && isDone(ch, tab, i)) { fb = '<small>Già risolta in un test precedente.</small>'; }
       h += '<p class="fb ' + fc + '" aria-live="polite">' + fb + '</p>';
     } else {
-      h += '<textarea class="ans" data-act="note" data-k="' + esc(k) + '" rows="3" placeholder="Scrivi qui la tua risposta" aria-label="La tua risposta all\'esercizio ' + (i + 1) + '">' + esc(notes[k] || '') + '</textarea>';
-      if (isAll()) h += '<label class="chk"><input type="checkbox" data-act="mark" data-ch="' + esc(ch.id) + '" data-t="' + tab + '" data-i="' + i + '" ' + (isDone(ch, tab, i) ? 'checked' : '') + '> Esercizio completato</label>';
+      const r = res[k];
+      h += '<textarea class="ans" data-act="note" data-k="' + esc(k) + '" rows="3" placeholder="Scrivi qui la tua risposta" aria-label="La tua risposta all\'esercizio ' + (i + 1) + '"' + (r ? ' readonly' : '') + '>' + esc(notes[k] || '') + '</textarea>';
+      if (r) h += '<p class="fb ' + (r.s === 'none' ? 'none' : 'ok') + '">' + (r.s === 'none' ? 'Senza risposta.' : '<strong>Consegnata.</strong> La correggerà l\'insegnante.') + '</p>';
+      else if (busy[k]) h += '<p class="fb">Correzione in corso…</p>';
+      else if (isAll() && isDone(ch, tab, i)) h += '<p class="fb"><small>Già consegnata in un test precedente.</small></p>';
     }
     if (showT()) h += '<details class="sol"><summary>Soluzione per il docente</summary><div>' + md(e.sol || '') + '</div></details>';
     return h + '</div></article>';
+  }
+
+  /* ---------- test: si risponde a tutto, poi «Conferma» e arrivano i risultati ---------- */
+  const testRange = (ch, tab, b) => b != null && DPE() ? blkRange(ch, tab, b) : [0, ch[tab].length];
+  const testKey = (ch, tab, i) => ch.id + '-' + tab + (DPE() ? '-' + Math.floor(i / DPE()) : '');
+  const tKey = (ch, tab, b) => ch.id + '-' + tab + (b != null && DPE() ? '-' + b : '');
+  const answered = (ch, tab, i) => { const e = ch[tab][i], k = exKey(ch, tab, i); return e.tipo === 'scelta' ? sel[k] != null : !!String(notes[k] || '').trim(); };
+  function testStato(ch, tab, b) {
+    const rg = testRange(ch, tab, b);
+    let aperte = 0, risposte = 0, giuste = 0, sbagliate = 0, vuote = 0, consegnate = 0, nScelta = 0, wait = false;
+    for (let i = rg[0]; i < rg[1]; i++) {
+      const k = exKey(ch, tab, i), r = res[k], e = ch[tab][i];
+      if (busy[k]) wait = true;
+      if (e.tipo === 'scelta') nScelta++;
+      if (!r) { aperte++; if (answered(ch, tab, i)) risposte++; continue; }
+      if (r.s === 'ok') giuste++; else if (r.s === 'no') sbagliate++; else if (r.s === 'none') vuote++; else if (r.s === 'cons') consegnate++;
+    }
+    return { tot: rg[1] - rg[0], aperte, risposte, giuste, sbagliate, vuote, consegnate, nScelta, wait };
+  }
+  function testBar(ch, tab, b) {
+    const st = testStato(ch, tab, b), bb = b == null ? '' : String(b), tk = tKey(ch, tab, b);
+    if (!st.tot) return '';
+    if (st.wait) return '<div class="ts-bar"><p>Correzione in corso…</p></div>';
+    if (st.aperte) {
+      const manca = st.aperte - st.risposte;
+      return '<div class="ts-bar"><p>Hai risposto a ' + st.risposte + ' di ' + st.aperte + ' domande' + (st.aperte < st.tot ? ' da rifare' : '') + '.<small>' + (testArm[tk] && manca ? (manca === 1 ? 'Manca 1 risposta' : 'Mancano ' + manca + ' risposte') + ': premi di nuovo per confermare comunque.' : 'Quando hai finito premi «Conferma»: vedrai i risultati e il perché degli errori.') + '</small></p>' +
+        '<button type="button" class="btn" data-act="ts-conf" data-t="' + tab + '" data-b="' + bb + '">' + (testArm[tk] && manca ? 'Conferma comunque' : 'Conferma e vedi i risultati') + '</button></div>';
+    }
+    return '';
+  }
+  function testRisultato(ch, tab, b) {
+    const st = testStato(ch, tab, b), bb = b == null ? '' : String(b), tr = testRes[tKey(ch, tab, b)];
+    if (!st.tot || st.aperte || st.wait || !tr) return '';
+    const sb = st.sbagliate + st.vuote;
+    const voto = st.nScelta ? 'Giuste: <strong>' + st.giuste + ' su ' + st.nScelta + '</strong> (' + Math.round(st.giuste / st.nScelta * 100) + '%)' : '';
+    const prima = tr.primo != null && tr.primo !== st.giuste && st.nScelta ? ' · alla prima consegna: ' + tr.primo + ' su ' + st.nScelta : '';
+    return '<div class="ts-res' + (sb ? ' mid' : '') + '" role="status"><h3>' + (sb ? 'Risultati del test' : (st.nScelta ? 'Tutte giuste. Bravo!' : 'Test consegnato')) + '</h3><p>' + voto + prima + (st.consegnate ? (voto ? ' · ' : '') + 'Risposte aperte consegnate: ' + st.consegnate : '') + '</p>' +
+      (sb ? '<p>Sotto ogni domanda sbagliata trovi il perché. Rileggi e poi riprova solo quelle.</p><button type="button" class="btn" data-act="ts-retry" data-t="' + tab + '" data-b="' + bb + '">Riprova le domande sbagliate (' + sb + ')</button>' : '') + '</div>';
+  }
+  function confermaTest(tab, b) {
+    const ch = DATA.capitoli[route.i]; if (!ch) return;
+    const rg = testRange(ch, tab, b), tk = tKey(ch, tab, b), st = testStato(ch, tab, b);
+    if (st.risposte < st.aperte && !testArm[tk]) { testArm[tk] = true; render(); return; }
+    delete testArm[tk];
+    const da = [];
+    for (let i = rg[0]; i < rg[1]; i++) { const k = exKey(ch, tab, i); if (!res[k]) da.push(i); }
+    if (!da.length) return;
+    const primaVolta = !testRes[tk];
+    const applica = esiti => {
+      const byI = {}; esiti.forEach(x => { byI[x.i] = x; });
+      da.forEach(i => {
+        const k = exKey(ch, tab, i), e = ch[tab][i], x = byI[i];
+        delete busy[k];
+        if (e.tipo === 'scelta') {
+          if (!x || x.vuota) { res[k] = { s: 'none' }; return; }
+          tries[k] = (tries[k] || 0) + 1;
+          if (x.giusta) { res[k] = { j: x.j, s: 'ok' }; expl[k] = x.spiegazione || ''; if (isAll()) markDone(ch.id, tab, i, true); }
+          else res[k] = { j: x.j, s: 'no', why: x.perche || '' };
+        } else {
+          res[k] = x && x.consegnata ? { s: 'cons' } : { s: 'none' };
+          if (x && x.consegnata && isAll()) markDone(ch.id, tab, i, true);
+        }
+      });
+      const s2 = testStato(ch, tab, b);
+      testRes[tk] = Object.assign({}, testRes[tk] || {}, primaVolta ? { primo: s2.giuste } : {});
+      if (primaVolta && isAll()) salvaTestDrive(ch, tab, b);
+    };
+    const risposte = da.map(i => { const e = ch[tab][i], k = exKey(ch, tab, i); return e.tipo === 'scelta' ? { i: i, j: sel[k] != null ? sel[k] : -1 } : { i: i, testo: notes[k] || '' }; });
+    if (!isAll()) { // anteprima di docenti e segreteria: correzione sul posto
+      applica(risposte.map(r => { const e = ch[tab][r.i]; if (e.tipo !== 'scelta') return { i: r.i, consegnata: !!String(r.testo).trim() }; if (r.j < 0) return { i: r.i, vuota: true }; const g = r.j === e.ok; return { i: r.i, j: r.j, giusta: g, spiegazione: g ? e.sol || '' : '', perche: g ? '' : ((e.perche || [])[r.j] || '') }; }));
+      render(); scrollRisultato(); return;
+    }
+    da.forEach(i => { busy[exKey(ch, tab, i)] = true; }); render();
+    tcall('verificaTest', SEZ.id, ch.id, tab, risposte).then(r => { applica(r.esiti || []); })
+      .catch(e => { da.forEach(i => { delete busy[exKey(ch, tab, i)]; }); toast(e.message); })
+      .then(() => { if (SESS && route.v === 'cap') { render(); scrollRisultato(); } });
+  }
+  function scrollRisultato() { const n = $('.ts-res'); if (n) n.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+  function riprovaTest(tab, b) {
+    const ch = DATA.capitoli[route.i]; if (!ch) return;
+    const rg = testRange(ch, tab, b);
+    let primo = null;
+    for (let i = rg[0]; i < rg[1]; i++) { const k = exKey(ch, tab, i), r = res[k]; if (r && (r.s === 'no' || r.s === 'none')) { delete res[k]; delete sel[k]; if (primo == null) primo = k; } }
+    render();
+    const n = primo && $('[data-k="' + primo + '"]'); if (n) n.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+  function salvaTestDrive(ch, tab, b) {
+    const rg = testRange(ch, tab, b);
+    const det = ch[tab].slice(rg[0], rg[1]).map((e, x) => { const k = exKey(ch, tab, rg[0] + x), r = res[k] || {}; return e.tipo === 'scelta' ? { ok: r.s === 'ok', scelta: r.j != null ? r.j : -1, tentativi: 1 } : { ok: r.s === 'cons', testo: notes[k] || '' }; });
+    tcall('salvaTest', SEZ.id, ch.id, tab, det, b != null && DPE() ? b : null).then(() => toast('Test salvato nella tua cartella.')).catch(() => { });
   }
 
   /* ---------- schede da stampare ---------- */
@@ -1645,13 +1754,17 @@ const NOTA = (function () {
         }).join('') + '</div>';
         h += '<div class="ex-h"><div><h2>Esercizio ' + esNum(ch, tab, b) + ' · ' + (tab === 'aula' ? 'in aula' : 'a casa') + '</h2><p>' + (rg[1] - rg[0]) + ' domande. ' + dove + '</p></div>';
         h += '<div class="ex-dl"><button type="button" class="btn" data-act="dl" data-t="' + tab + '" data-b="' + b + '">Scheda da stampare</button>' + (showT() ? '<button type="button" class="btn ghost" data-act="dl" data-t="' + tab + '" data-b="' + b + '" data-sol="1">Scheda con soluzioni</button>' : '') + '</div></div>';
+        h += testRisultato(ch, tab, b);
         for (let ii = rg[0]; ii < rg[1]; ii++) h += exHTML(ch, tab, ch[tab][ii], ii);
+        h += testBar(ch, tab, b) + testRisultato(ch, tab, b);
         if (b < nb - 1) h += '<div class="t-bar"><button type="button" class="btn" data-act="blk" data-t="' + tab + '" data-b="' + (b + 1) + '">Vai all\'esercizio ' + esNum(ch, tab, b + 1) + ' →</button></div>';
       } else {
         h += '<div class="ex-h"><div><h2>' + (tab === 'aula' ? 'Esercizi in aula' : 'Esercizi a casa') + '</h2><p>' + dove + '</p></div>';
         h += '<div class="ex-dl"><button type="button" class="btn" data-act="dl" data-t="' + tab + '">Scheda da stampare</button>' + (showT() ? '<button type="button" class="btn ghost" data-act="dl" data-t="' + tab + '" data-sol="1">Scheda con soluzioni</button>' : '') + '</div></div>';
         if (!ch[tab].length) h += '<p class="empty">Nessun esercizio in questa sezione.</p>';
+        if (ch[tab].length) h += testRisultato(ch, tab, null);
         h += ch[tab].map((e, i) => exHTML(ch, tab, e, i)).join('');
+        if (ch[tab].length) h += testBar(ch, tab, null) + testRisultato(ch, tab, null);
       }
     }
     h += '</div>';
@@ -1861,7 +1974,7 @@ const NOTA = (function () {
   function startSez(r) {
     SEZ = r.sezione; DATA = r.dati; PROG = r.progressi || {};
     mode = isStaff() ? 'docente' : 'allievo'; route = { v: 'home', i: 0, tab: 'teoria' };
-    res = {}; expl = {}; busy = {}; pg = null; editing = false; dirty = false;
+    res = {}; expl = {}; busy = {}; sel = {}; testArm = {}; testRes = {}; pg = null; editing = false; dirty = false;
     loadNotes(); render(); window.scrollTo({ top: 0 });
   }
   function openSez(id) {
@@ -2295,18 +2408,14 @@ const NOTA = (function () {
       case 'idx': document.body.classList.toggle('idx-open'); render(); break;
       case 'pick': {
         const d = el.dataset, c = DATA.capitoli.filter(x => x.id === d.ch)[0]; if (!c) break;
-        const i = +d.i, j = +d.j, k = exKey(c, d.t, i);
+        const k = exKey(c, d.t, +d.i);
+        if (res[k] || busy[k]) break; // già corretta: per cambiarla si usa «Riprova le sbagliate»
         const keep = window.scrollY;
-        if (!isAll()) { const e = c[d.t][i]; res[k] = { j: j, s: j === e.ok ? 'ok' : 'no', why: j === e.ok ? '' : ((e.perche || [])[j] || '') }; expl[k] = e.sol || ''; render(); window.scrollTo(0, keep); break; }
-        if (busy[k]) break;
-        tries[k] = (tries[k] || 0) + 1;
-        busy[k] = true; res[k] = { j: j, s: 'wait' }; render(); window.scrollTo(0, keep);
-        tcall('verificaRisposta', SEZ.id, c.id, d.t, i, j).then(r => {
-          busy[k] = false;
-          if (r.giusta) { res[k] = { j: j, s: 'ok' }; expl[k] = r.spiegazione || ''; markDone(c.id, d.t, i, true); inviaTest(c, d.t, i); } else { res[k] = { j: j, s: 'no', why: r.perche || '' }; }
-        }).catch(e => { busy[k] = false; delete res[k]; toast(e.message); }).then(() => { if (SESS) { const y = window.scrollY; render(); window.scrollTo(0, y); } });
+        sel[k] = +d.j; delete testArm[testKey(c, d.t, +d.i)]; render(); window.scrollTo(0, keep);
         break;
       }
+      case 'ts-conf': confermaTest(el.dataset.t, el.dataset.b === '' ? null : +el.dataset.b); break;
+      case 'ts-retry': riprovaTest(el.dataset.t, el.dataset.b === '' ? null : +el.dataset.b); break;
       case 'sch': { const i = +el.dataset.i; if (ch.schede && ch.schede[i]) openHtml(schedaDoc(ch, i, !!el.dataset.sol), 'DomusForm-Kids-Cap' + (route.i + 1) + '-Scheda' + (i + 1) + (el.dataset.sol ? '-Soluzioni' : '') + '.html'); break; }
       case 'dl': openSheet(ch, el.dataset.t, !!el.dataset.sol, el.dataset.b != null ? +el.dataset.b : null); break;
       case 'blk': if (ch) { blkSel[ch.id + '-' + el.dataset.t] = +el.dataset.b; render(); const pn = $('.tabs'); if (pn) pn.scrollIntoView({ block: 'start' }); } break;
@@ -2403,7 +2512,11 @@ const NOTA = (function () {
   }
   app.addEventListener('input', ev => {
     const el = ev.target;
-    if (el.dataset.act === 'note') { notes[el.dataset.k] = el.value; saveNotes(); }
+    if (el.dataset.act === 'note') {
+      notes[el.dataset.k] = el.value; saveNotes();
+      const ch = DATA && DATA.capitoli[route.i], bar = $('.ts-bar');
+      if (ch && bar && route.v === 'cap') { const tab = route.tab === 'casa' ? 'casa' : 'aula', b = DPE() ? curBlk(ch, tab) : null; const tmp = document.createElement('div'); tmp.innerHTML = testBar(ch, tab, b); if (tmp.firstChild) bar.replaceWith(tmp.firstChild); }
+    }
     else if (el.dataset.ed && el.tagName !== 'SELECT' && el.type !== 'number') onEdit(el);
     else if (el.dataset.adm === 'q') { adm.q = el.value; const pos = el.selectionStart; render(); const n = $('[data-adm="q"]'); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) { } } }
     else if (el.form && el.form.dataset.form === 'nuova') {
