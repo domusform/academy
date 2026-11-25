@@ -957,6 +957,7 @@ const NOTA = (function () {
   const isSeg = () => !!SESS && SESS.user.ruolo === 'segreteria';
   const isStaff = () => !!SESS && SESS.user.ruolo !== 'allievo';
   const showT = () => isStaff() && mode === 'docente';
+  const subito = () => isStaff(); // segreteria e docenti: correzione immediata a ogni clic; allievi: test completo poi «Conferma»
   const TEACH_BANNER = '<p class="teach-banner">📚 <strong>Materiale a disposizione dei docenti</strong>: supporto alla didattica in sola consultazione, con soluzioni e note per il docente.</p>';
   const canEd = () => showT() && SESS.user.ruolo === 'segreteria';
 
@@ -1426,23 +1427,24 @@ const NOTA = (function () {
     h += '<div class="ex-q">' + md(e.q) + '</div>';
     if (e.staff) h += '<figure class="fig">' + staff(e.staff, 'Pentagramma dell\'esercizio ' + (i + 1)) + '</figure>';
     if (e.tipo === 'scelta') {
-      const r = res[k], lock = !!r || !!busy[k];
+      const r = res[k], lock = !subito() && (!!r || !!busy[k]);
       h += '<div class="opts" role="group" aria-label="Risposte">' + e.opz.map((o, j) => {
         let cls = 'opt' + (lock ? ' lock' : '');
         if (r && r.j === j) cls += r.s === 'ok' ? ' right' : r.s === 'no' ? ' wrong' : '';
-        else if (!r && sel[k] === j) cls += ' sel';
+        else if (!r && !subito() && sel[k] === j) cls += ' sel';
         if (showT() && j === e.ok) cls += ' key';
-        return '<button type="button" class="' + cls + '" data-act="pick" data-ch="' + esc(ch.id) + '" data-t="' + tab + '" data-i="' + i + '" data-j="' + j + '" aria-pressed="' + (!r && sel[k] === j) + '"' + (lock ? ' aria-disabled="true"' : '') + '><span class="opt-l">' + ('ABCD'[j] || (j + 1)) + '</span><span>' + esc(o) + '</span></button>';
+        return '<button type="button" class="' + cls + '" data-act="pick" data-ch="' + esc(ch.id) + '" data-t="' + tab + '" data-i="' + i + '" data-j="' + j + '" aria-pressed="' + (!r && !subito() && sel[k] === j) + '"' + (lock ? ' aria-disabled="true"' : '') + '><span class="opt-l">' + ('ABCD'[j] || (j + 1)) + '</span><span>' + esc(o) + '</span></button>';
       }).join('') + '</div>';
       let fb = '', fc = '';
       if (r && r.s === 'ok') { fc = 'ok'; fb = '<strong>Esatto!</strong> ' + esc(expl[k] || ''); }
+      else if (r && r.s === 'no' && subito()) { fc = 'no'; fb = r.why ? 'Non è questa.<span class="why">' + esc(r.why) + '</span>' : 'Non è questa. Rileggi la domanda e riprova.'; }
       else if (r && r.s === 'no') { fc = 'no'; fb = r.why ? 'Sbagliata.<span class="why">' + esc(r.why) + '</span>' : 'Sbagliata. Rileggi la domanda e la teoria.'; }
       else if (r && r.s === 'none') { fc = 'none'; fb = 'Senza risposta.'; }
       else if (busy[k]) { fb = 'Correzione in corso…'; }
       else if (isAll() && isDone(ch, tab, i)) { fb = '<small>Già risolta in un test precedente.</small>'; }
       h += '<p class="fb ' + fc + '" aria-live="polite">' + fb + '</p>';
     } else {
-      const r = res[k];
+      const r = subito() ? null : res[k];
       h += '<textarea class="ans" data-act="note" data-k="' + esc(k) + '" rows="3" placeholder="Scrivi qui la tua risposta" aria-label="La tua risposta all\'esercizio ' + (i + 1) + '"' + (r ? ' readonly' : '') + '>' + esc(notes[k] || '') + '</textarea>';
       if (r) h += '<p class="fb ' + (r.s === 'none' ? 'none' : 'ok') + '">' + (r.s === 'none' ? 'Senza risposta.' : '<strong>Consegnata.</strong> La correggerà l\'insegnante.') + '</p>';
       else if (busy[k]) h += '<p class="fb">Correzione in corso…</p>';
@@ -1470,6 +1472,7 @@ const NOTA = (function () {
     return { tot: rg[1] - rg[0], aperte, risposte, giuste, sbagliate, vuote, consegnate, nScelta, wait };
   }
   function testBar(ch, tab, b) {
+    if (subito()) return '';
     const st = testStato(ch, tab, b), bb = b == null ? '' : String(b), tk = tKey(ch, tab, b);
     if (!st.tot) return '';
     if (st.wait) return '<div class="ts-bar"><p>Correzione in corso…</p></div>';
@@ -1481,6 +1484,7 @@ const NOTA = (function () {
     return '';
   }
   function testRisultato(ch, tab, b) {
+    if (subito()) return '';
     const st = testStato(ch, tab, b), bb = b == null ? '' : String(b), tr = testRes[tKey(ch, tab, b)];
     if (!st.tot || st.aperte || st.wait || !tr) return '';
     const sb = st.sbagliate + st.vuote;
@@ -2409,6 +2413,11 @@ const NOTA = (function () {
       case 'pick': {
         const d = el.dataset, c = DATA.capitoli.filter(x => x.id === d.ch)[0]; if (!c) break;
         const k = exKey(c, d.t, +d.i);
+        if (subito()) { // segreteria e docenti: come prima, ti dice subito se è giusta o sbagliata e puoi cambiare risposta
+          const i = +d.i, j = +d.j, e = c[d.t][i], y = window.scrollY;
+          res[k] = { j: j, s: j === e.ok ? 'ok' : 'no', why: j === e.ok ? '' : ((e.perche || [])[j] || '') }; expl[k] = e.sol || '';
+          render(); window.scrollTo(0, y); break;
+        }
         if (res[k] || busy[k]) break; // già corretta: per cambiarla si usa «Riprova le sbagliate»
         const keep = window.scrollY;
         sel[k] = +d.j; delete testArm[testKey(c, d.t, +d.i)]; render(); window.scrollTo(0, keep);
