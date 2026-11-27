@@ -400,6 +400,28 @@ a.btn { display: inline-flex; align-items: center; text-decoration: none; }
 .sec-card p { margin: 0; font-size: 15px; }
 .sec-card .sec-n { color: var(--muted); font-weight: 700; font-size: 14px; }
 .sec-card .btn { justify-self: start; margin-top: 4px; }
+.sync-note { font-size: 13px; color: var(--muted); font-weight: 700; margin: -6px 0 10px; }
+.dp-h { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
+.dp-act { display: flex; gap: 8px; align-items: center; margin-left: auto; }
+.dp-st { font-size: 13px; color: var(--muted); font-weight: 700; }
+.dp-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.dp-sez { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: grid; gap: 8px; min-width: 0; }
+.dp-sez h3 { font-size: 1rem; }
+.dp-n { font-size: 13px; color: var(--muted); } .dp-n b { font-size: 1.3rem; color: var(--ink, inherit); }
+.dp-row { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center; font-size: 13px; }
+.dp-row .bar { grid-column: 1 / -1; grid-row: 2; }
+.dp-row strong { grid-column: 2; grid-row: 1; }
+.dp-sub { font-size: 1rem; margin-top: 4px; }
+.dp-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.dp-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; align-items: center; border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; }
+.dp-nm { display: grid; } .dp-nm small { color: var(--muted); font-size: 12px; }
+.dp-bd { display: flex; flex-wrap: wrap; gap: 4px; }
+.dp-badge { font-style: normal; font-size: 12px; font-weight: 700; border-radius: 6px; padding: 2px 6px; background: var(--line); white-space: nowrap; }
+.dp-badge.low { background: #fbdcdc; color: #9b1c1c; } .dp-badge.mid { background: #fdf0c8; color: #7a5a00; }
+.dp-bar { flex-wrap: wrap; align-items: flex-end; }
+.dp-wrap { overflow-x: auto; }
+.dp-tab td { vertical-align: top; } .dp-c { min-width: 120px; } .dp-c span { display: block; font-size: 12px; color: var(--muted); }
+@media (max-width: 640px) { .dp-list li { grid-template-columns: 1fr auto; } .dp-list li .dp-bd { grid-column: 1 / -1; grid-row: 2; } }
 .stat-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); margin-bottom: 22px; }
 .stat { border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; background: var(--surface); display: grid; }
 .stat b { font-family: var(--f-display); font-size: 2rem; line-height: 1.1; }
@@ -935,6 +957,19 @@ const NOTA = (function () {
   const RUOLI = { segreteria: 'Segreteria', docente: 'Docente', allievo: 'Allievo' };
   const KEY_S = 'dfa-teoria-sessione';
   const KEY_N = 'dfa-teoria-note-';
+  const KEY_U = 'dfa-teoria-utente';
+  function salvaSess() { try { localStorage.setItem(KEY_S, SESS.token); localStorage.setItem(KEY_U, JSON.stringify(SESS.user)); } catch (e) { } }
+  /* svuota i dati personali salvati nel browser (all'uscita) */
+  function pulisciCache(u) {
+    try {
+      localStorage.removeItem(KEY_S); localStorage.removeItem(KEY_U);
+      if (!u) return;
+      const staff = u.ruolo !== 'allievo';
+      Object.keys(localStorage).forEach(k => {
+        if (k === 'dfa-pc-' + u.id || k === 'dfa-dp-' + u.id || k.indexOf('dfa-key-' + u.id + '-') === 0 || (staff && k.indexOf('dfa-cc2-' + u.id + '-') === 0)) localStorage.removeItem(k);
+      });
+    } catch (e) { }
+  }
 
   /* ---------- stato ---------- */
   let SESS = null;            // { token, user }
@@ -992,8 +1027,8 @@ const NOTA = (function () {
     });
   }
   function expire(msg) {
+    pulisciCache(SESS && SESS.user); DPG = null;
     SESS = null; DATA = null; SEZ = null; PROG = {}; tries = {}; savedT = {}; adm = null; pg = null; PORTAL = null; MAT = null; editing = false; dirty = false; route = { v: 'portal', i: 0, tab: 'teoria' };
-    try { localStorage.removeItem(KEY_S); } catch (e) { }
     login.msg = msg || 'La sessione è scaduta. Accedi di nuovo.'; login.busy = false;
     render();
   }
@@ -1476,7 +1511,7 @@ const NOTA = (function () {
     if (subito()) return '';
     const st = testStato(ch, tab, b), bb = b == null ? '' : String(b), tk = tKey(ch, tab, b);
     if (!st.tot) return '';
-    if (st.wait) return '<div class="ts-bar"><p>Correzione in corso…</p></div>';
+    if (st.wait) return '<div class="ts-bar"><p>' + esc(attesaTesto()) + '</p></div>';
     if (st.aperte) {
       const manca = st.aperte - st.risposte;
       return '<div class="ts-bar"><p>Hai risposto a ' + st.risposte + ' di ' + st.aperte + ' domande' + (st.aperte < st.tot ? ' da rifare' : '') + '.<small>' + (testArm[tk] && manca ? (manca === 1 ? 'Manca 1 risposta' : 'Mancano ' + manca + ' risposte') + ': premi di nuovo per confermare comunque.' : 'Quando hai finito premi «Conferma»: vedrai i risultati e il perché degli errori.') + '</small></p>' +
@@ -1497,6 +1532,49 @@ const NOTA = (function () {
       '<button type="button" class="btn' + (sb ? ' ghost' : '') + '" data-act="ts-redo" data-t="' + tab + '" data-b="' + bb + '">Rifai il test da capo</button></div>' +
       (tr.giri > 1 ? '<p><small>Volte che hai fatto questo test: ' + tr.giri + '</small></p>' : '') + '</div>';
   }
+  /* Correzioni già ricevute dal server, salvate nel browser dell'allievo: quando ripete il test
+     le risposte già viste si correggono sul posto (risultato immediato); il server riceve comunque
+     le risposte in sottofondo per registrare i progressi. Si azzera se i contenuti della sezione cambiano. */
+  let KEYC = null;
+  const keyId = () => 'dfa-key-' + (SESS && SESS.user ? SESS.user.id : '') + '-' + (SEZ ? SEZ.id : '');
+  const keyVer = () => { const c = SEZ && ccGet(SEZ.id); return c && c.ver ? String(c.ver) : ''; };
+  function keyLoad() {
+    const id = keyId(), v = keyVer();
+    if (KEYC && KEYC.id === id && KEYC.ver === v) return KEYC;
+    let m = null; try { m = JSON.parse(localStorage.getItem(id) || 'null'); } catch (e) { }
+    KEYC = (m && m.ver === v && m.q) ? { id: id, ver: v, q: m.q } : { id: id, ver: v, q: {} };
+    return KEYC;
+  }
+  function keySave() { if (!KEYC) return; try { localStorage.setItem(KEYC.id, JSON.stringify({ ver: KEYC.ver, q: KEYC.q })); } catch (e) { } }
+  function keyLearn(ch, tab, esiti) {
+    const K = keyLoad();
+    esiti.forEach(x => {
+      if (!x || x.vuota || x.j == null || x.j < 0 || x.consegnata != null) return;
+      const e = ch[tab][x.i]; if (!e || e.tipo !== 'scelta') return;
+      const k = exKey(ch, tab, x.i), q = K.q[k] = K.q[k] || { t: String(e.q || '').slice(0, 40), w: {} };
+      if (x.giusta) { q.ok = x.j; q.sp = x.spiegazione || ''; } else if (x.perche) q.w[x.j] = x.perche;
+    });
+    keySave();
+  }
+  /* esito locale di una risposta, oppure null se serve il server */
+  function keyEsito(ch, tab, r) {
+    const e = ch[tab][r.i];
+    if (e.tipo !== 'scelta') return { i: r.i, consegnata: !!String(r.testo || '').trim() };
+    if (r.j < 0) return { i: r.i, vuota: true };
+    const q = keyLoad().q[exKey(ch, tab, r.i)];
+    if (!q || q.t !== String(e.q || '').slice(0, 40)) return null;
+    if (q.ok === r.j) return { i: r.i, j: r.j, giusta: true, spiegazione: q.sp || '' };
+    if (q.w && q.w[r.j]) return { i: r.i, j: r.j, giusta: false, perche: q.w[r.j] };
+    return null;
+  }
+  let BGQ = Promise.resolve();
+  const inCoda = fn => { BGQ = BGQ.then(fn).catch(() => { }); return BGQ; };
+  let WAIT = null; // { id, t0 } attesa della correzione dal server
+  const attesaTesto = () => {
+    if (!WAIT) return 'Correzione in corso…';
+    const s = (Date.now() - WAIT.t0) / 1000;
+    return s < 12 ? 'Correzione in corso…' : s < 40 ? 'Correzione in corso… Il server è un po\' lento, non chiudere la pagina.' : 'Il server sta impiegando molto. Ancora qualche secondo…';
+  };
   function confermaTest(tab, b) {
     const ch = DATA.capitoli[route.i]; if (!ch) return;
     const rg = testRange(ch, tab, b), tk = tKey(ch, tab, b), st = testStato(ch, tab, b);
@@ -1531,9 +1609,28 @@ const NOTA = (function () {
       applica(risposte.map(r => { const e = ch[tab][r.i]; if (e.tipo !== 'scelta') return { i: r.i, consegnata: !!String(r.testo).trim() }; if (r.j < 0) return { i: r.i, vuota: true }; const g = r.j === e.ok; return { i: r.i, j: r.j, giusta: g, spiegazione: g ? e.sol || '' : '', perche: g ? '' : ((e.perche || [])[r.j] || '') }; }));
       render(); scrollRisultato(); return;
     }
+    const sezId = SEZ.id;
+    const locali = risposte.map(r => keyEsito(ch, tab, r));
+    if (locali.every(x => x)) {
+      // tutte già note (test ripetuto): risultato immediato, registrazione dei progressi in sottofondo
+      applica(locali); render(); scrollRisultato();
+      inCoda(() => tcall('verificaTest', sezId, ch.id, tab, risposte).then(r => { keyLearn(ch, tab, r.esiti || []); }));
+      return;
+    }
+    const id = Date.now() + Math.random();
+    WAIT = { id: id, t0: Date.now() };
     da.forEach(i => { busy[exKey(ch, tab, i)] = true; }); render();
-    tcall('verificaTest', SEZ.id, ch.id, tab, risposte).then(r => { applica(r.esiti || []); })
-      .catch(e => { da.forEach(i => { delete busy[exKey(ch, tab, i)]; }); toast(e.message); })
+    const tick = setInterval(() => { if (!WAIT || WAIT.id !== id) { clearInterval(tick); return; } const n = $('.ts-bar p'); if (n && route.v === 'cap') n.textContent = attesaTesto(); }, 2000);
+    const limite = new Promise((ok, ko) => setTimeout(() => ko(new Error('Il server non ha risposto in tempo. Le tue risposte sono ancora lì: premi di nuovo «Conferma».')), 120000));
+    const fine = () => { if (WAIT && WAIT.id === id) WAIT = null; clearInterval(tick); };
+    // la correzione che l'allievo sta aspettando parte subito, senza mettersi in coda dietro ai salvataggi in sottofondo
+    Promise.race([tcall('verificaTest', sezId, ch.id, tab, risposte), limite])
+      .then(r => {
+        if (!WAIT || WAIT.id !== id) return; fine();
+        const es = r.esiti || []; keyLearn(ch, tab, es);
+        if (SEZ && SEZ.id === sezId) applica(es);
+      })
+      .catch(e => { if (!WAIT || WAIT.id !== id) return; fine(); da.forEach(i => { delete busy[exKey(ch, tab, i)]; }); toast(e.message); })
       .then(() => { if (SESS && route.v === 'cap') { render(); scrollRisultato(); } });
   }
   function scrollRisultato() { const n = $('.ts-res'); if (n) n.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
@@ -1555,7 +1652,8 @@ const NOTA = (function () {
   function salvaTestDrive(ch, tab, b) {
     const rg = testRange(ch, tab, b);
     const det = ch[tab].slice(rg[0], rg[1]).map((e, x) => { const k = exKey(ch, tab, rg[0] + x), r = res[k] || {}; return e.tipo === 'scelta' ? { ok: r.s === 'ok', scelta: r.j != null ? r.j : -1, tentativi: 1 } : { ok: r.s === 'cons', testo: notes[k] || '' }; });
-    tcall('salvaTest', SEZ.id, ch.id, tab, det, b != null && DPE() ? b : null).then(() => toast('Test salvato nella tua cartella.')).catch(() => { });
+    const sezId = SEZ.id, bb = b != null && DPE() ? b : null;
+    inCoda(() => tcall('salvaTest', sezId, ch.id, tab, det, bb).then(() => toast('Test salvato nella tua cartella.')));
   }
 
   /* ---------- schede da stampare ---------- */
@@ -1912,7 +2010,7 @@ const NOTA = (function () {
   const SEZ_LIST = [{ id: 'kids', nome: 'Teoria Musicale Kids' }, { id: 'basic', nome: 'Teoria Musicale Basic' }, { id: 'teoria', nome: 'Teoria Musicale' }, { id: 'armonia1', nome: 'Armonia 1' }, { id: 'armonia2', nome: 'Armonia 2' }];
   const sezNome = id => (SEZ_LIST.filter(s => s.id === id)[0] || {}).nome || id;
   const gNome = id => ((adm && adm.grp || PORTAL && PORTAL.grp || []).filter(g => g.id === id)[0] || {}).nome || id;
-  const PAGES_SEG = [['portal', 'Dashboard'], ['p-allievi', 'Allievi'], ['p-elenco-doc', 'Docenti'], ['p-corsi', 'Corsi e sezioni'], ['p-recupero', 'Recupero password'], ['p-archivio', 'Archivio Google Drive'], ['p-account', 'Account e inviti'], ['p-docenti', 'Assegnazioni dei docenti'], ['materiali', 'Materiali']];
+  const PAGES_SEG = [['portal', 'Dashboard'], ['p-progressi', 'Progressi allievi'], ['p-allievi', 'Allievi'], ['p-elenco-doc', 'Docenti'], ['p-corsi', 'Corsi e sezioni'], ['p-recupero', 'Recupero password'], ['p-archivio', 'Archivio Google Drive'], ['p-account', 'Account e inviti'], ['p-docenti', 'Assegnazioni dei docenti'], ['materiali', 'Materiali']];
   const PORTAL_ROUTES = PAGES_SEG.map(p => p[0]);
   const isPortal = () => PORTAL_ROUTES.indexOf(route.v) >= 0;
   let PORTAL = null, MAT = null;
@@ -1959,7 +2057,9 @@ const NOTA = (function () {
     PORTAL = PORTAL || { secs: null, grp: null, dash: null };
     adm = adm || newAdm();
     const seq = ++LOADSEQ, cur = fn => r => { if (seq === LOADSEQ) fn(r); };
+    if (!PORTAL.secs) { const pc = pcGet(); if (pc && pc.secs) { PORTAL.secs = pc.secs; PORTAL.grp = pc.grp; PORTAL.dash = pc.dash; if (isSeg()) { adm.users = pc.users; adm.set = pc.set; adm.grp = pc.gestione; } } }
     adm.busy = true; adm.err = ''; render();
+    if (PORTAL.secs && dpVisible()) loadDashProg();
     const legacy = () => {
       const j = [tcall('elencoSezioni').then(cur(r => { PORTAL.secs = r; })), tcall('elencoGruppi').then(cur(r => { PORTAL.grp = r; }))];
       if (isSeg()) j.push(tcall('cruscottoSegreteria').then(cur(r => { PORTAL.dash = r; })), tcall('elencoUtenze').then(cur(r => { adm.users = r; })), tcall('leggiModelloMessaggio').then(cur(r => { adm.set = r; })), tcall('gestioneGruppi').then(cur(r => { adm.grp = r; })));
@@ -1968,18 +2068,31 @@ const NOTA = (function () {
     const jobs = [tcall('caricaPortale').then(cur(r => {
       PORTAL.secs = r.sezioni; PORTAL.grp = r.gruppi;
       if (r.dash) { PORTAL.dash = r.dash; adm.users = r.utenti; adm.set = r.modello; adm.grp = r.gestione; }
+      pcPut();
     })).catch(e => { if (/Operazione non valida/.test(e.message)) return legacy(); throw e; })];
-    Promise.all(jobs).then(() => { if (seq === LOADSEQ) prefetchSez(); }).catch(e => { if (seq === LOADSEQ) adm.err = e.message; }).then(() => { if (seq !== LOADSEQ) return; adm.busy = false; if (isPortal()) { if (route.v === 'materiali') initMat(); else render(); } });
+    Promise.all(jobs).then(() => { if (seq === LOADSEQ) prefetchSez(); }).catch(e => { if (seq === LOADSEQ) adm.err = e.message; }).then(() => { if (seq !== LOADSEQ) return; adm.busy = false; if (isPortal()) { if (route.v === 'materiali') initMat(); else render(); if (dpVisible()) loadDashProg(); } });
+  }
+  /* copia della dashboard nel browser: all'apertura si vede subito, poi si aggiorna dal server */
+  const pcKey = () => 'dfa-pc-' + (SESS && SESS.user ? SESS.user.id : '');
+  function pcGet() { try { const t = localStorage.getItem(pcKey()); return t ? JSON.parse(t) : null; } catch (e) { return null; } }
+  function pcPut() {
+    try { localStorage.setItem(pcKey(), JSON.stringify({ secs: PORTAL.secs, grp: PORTAL.grp, dash: PORTAL.dash, users: isSeg() ? adm.users : null, set: isSeg() ? adm.set : null, gestione: isSeg() ? adm.grp : null })); } catch (e) { }
   }
   function refreshSeg() {
     LOADSEQ++;
-    return Promise.all([tcall('elencoUtenze').then(r => { adm.users = r; }), tcall('gestioneGruppi').then(r => { adm.grp = r; }), tcall('cruscottoSegreteria').then(r => { PORTAL.dash = r; }), tcall('elencoGruppi').then(r => { PORTAL.grp = r; })]).then(() => { adm.busy = false; });
+    return Promise.all([tcall('elencoUtenze').then(r => { adm.users = r; }), tcall('gestioneGruppi').then(r => { adm.grp = r; }), tcall('cruscottoSegreteria').then(r => { PORTAL.dash = r; }), tcall('elencoGruppi').then(r => { PORTAL.grp = r; })]).then(() => { adm.busy = false; pcPut(); });
   }
   /* copia dei corsi nel browser: la seconda apertura è immediata e il server rispedisce i contenuti solo se sono cambiati */
   const ccKey = id => 'dfa-cc2-' + (SESS && SESS.user ? SESS.user.id : '') + '-' + id;
-  const ccStore = () => (SESS && SESS.user && SESS.user.ruolo === 'allievo') ? window.localStorage : window.sessionStorage;
+  const ccStore = () => window.localStorage; // anche per i docenti: la seconda apertura (nuova scheda, giorno dopo) è immediata; all'uscita si svuota
   function ccGet(id) { try { const t = ccStore().getItem(ccKey(id)); return t ? JSON.parse(t) : null; } catch (e) { return null; } }
-  function ccPut(id, ver, dati) { try { ccStore().setItem(ccKey(id), JSON.stringify({ ver: ver, dati: dati })); } catch (e) { /* spazio esaurito: si rimanda al server */ } }
+  function ccPut(id, ver, dati) {
+    const t = JSON.stringify({ ver: ver, dati: dati });
+    try { ccStore().setItem(ccKey(id), t); } catch (e) {
+      // spazio esaurito: si liberano le copie di altri utenti di questo browser e si riprova una volta
+      try { const mio = ccKey(''); Object.keys(localStorage).forEach(k => { if (k.indexOf('dfa-cc2-') === 0 && k.indexOf(mio) !== 0) localStorage.removeItem(k); }); ccStore().setItem(ccKey(id), t); } catch (e2) { /* si rimanda al server */ }
+    }
+  }
   function fetchCorso(id) {
     const c = ccGet(id);
     return tcall('caricaCorso', id, c ? c.ver : '').then(r => {
@@ -1987,11 +2100,14 @@ const NOTA = (function () {
       return r;
     });
   }
+  let PG_PEND = false;
   function startSez(r) {
     SEZ = r.sezione; DATA = r.dati; PROG = r.progressi || {};
     mode = isStaff() ? 'docente' : 'allievo'; route = { v: 'home', i: 0, tab: 'teoria' };
-    res = {}; expl = {}; busy = {}; sel = {}; testArm = {}; testRes = {}; pg = null; editing = false; dirty = false;
-    loadNotes(); render(); window.scrollTo({ top: 0 });
+    res = {}; expl = {}; busy = {}; sel = {}; testArm = {}; testRes = {}; pg = null; editing = false; dirty = false; KEYC = null; WAIT = null;
+    loadNotes();
+    if (PG_PEND && isStaff()) { PG_PEND = false; route = { v: 'progressi', i: 0, tab: 'teoria' }; loadProg(); } else render();
+    window.scrollTo({ top: 0 });
   }
   function openSez(id) {
     const c = ccGet(id);
@@ -2008,18 +2124,133 @@ const NOTA = (function () {
       return;
     }
     toast('Apro la sezione…');
-    fetchCorso(id).then(startSez).catch(e => toast(e.message));
+    fetchCorso(id).then(startSez).catch(e => { PG_PEND = false; toast(e.message); });
   }
   function prefetchSez() {
     if (!SESS || isSeg() || !PORTAL || !PORTAL.secs) return;
     const todo = PORTAL.secs.map(s => s.id).filter(id => !ccGet(id)).slice(0, 3);
     todo.reduce((p, id) => p.then(() => fetchCorso(id)).catch(() => { }), Promise.resolve());
   }
+
+  /* ---------- progressi degli allievi nella dashboard ---------- */
+  let DPG = null; const DPF = { s: '', q: '', ord: 'seguire' };
+  const dpKey = () => 'dfa-dp-' + (SESS && SESS.user ? SESS.user.id : '');
+  const dpVisible = () => !!SESS && isStaff() && isPortal() && (route.v === 'portal' || route.v === 'p-progressi');
+  function dpSezioni() {
+    if (isSeg()) { const d = PORTAL && PORTAL.dash; return d && d.sezioni ? d.sezioni.filter(x => (x.allievi || 0) > 0).map(x => ({ id: x.id, nome: x.nome })) : null; }
+    return PORTAL && PORTAL.secs ? PORTAL.secs.map(x => ({ id: x.id, nome: x.nome })) : null;
+  }
+  function loadDashProg(force) {
+    const secs = dpSezioni(); if (!secs) return;
+    DPG = DPG || { rows: {}, err: {}, at: 0, busy: false };
+    if (!DPG.at) { try { const c = JSON.parse(localStorage.getItem(dpKey()) || 'null'); if (c && c.rows) { DPG.rows = c.rows; DPG.at = c.at || 0; } } catch (e) { } }
+    if (DPG.busy) return;
+    const fresco = DPG.at && Date.now() - DPG.at < 10 * 60000 && secs.every(x => DPG.rows[x.id]);
+    if (!force && fresco) { if (dpVisible()) render(); return; }
+    DPG.busy = true; DPG.err = {}; if (dpVisible()) render();
+    const uid = SESS.user.id;
+    Promise.all(secs.map(x => tcall('riepilogoProgressi', x.id).then(r => { DPG.rows[x.id] = r || []; }).catch(e => { DPG.err[x.id] = e.message; })))
+      .then(() => {
+        if (!DPG || !SESS || SESS.user.id !== uid) return;
+        DPG.busy = false; DPG.at = Date.now();
+        try { localStorage.setItem(dpKey(), JSON.stringify({ rows: DPG.rows, at: DPG.at })); } catch (e) { }
+        if (dpVisible()) render();
+      });
+  }
+  const dpPc = (a, b) => b ? Math.round(a / b * 100) : null;
+  const dpCls = p => p == null ? '' : p >= 80 ? 'ok' : p >= 60 ? 'mid' : 'low';
+  function dpGiorni(iso) { const t = Date.parse(iso || ''); return isNaN(t) ? null : Math.floor((Date.now() - t) / 86400000); }
+  /* motivi per cui un allievo va seguito, dal più importante */
+  function dpMotivi(r) {
+    const m = [], ac = dpPc(r.primo || 0, r.tentate || 0), gg = dpGiorni(r.quando);
+    const iniziato = (r.tentate || 0) > 0 || (r.fatti || 0) > 0;
+    if (iniziato && (r.tentate || 0) >= 10 && ac < 60) m.push({ p: 3, t: 'Esatte solo il ' + ac + '%', c: 'low' });
+    if (iniziato && gg != null && gg >= 14) m.push({ p: 2, t: 'Fermo da ' + gg + ' giorni', c: 'mid' });
+    if (!iniziato) m.push({ p: 1, t: 'Non ha ancora iniziato', c: '' });
+    return m;
+  }
+  function dpDati() {
+    const secs = dpSezioni() || [], sum = [], righe = [];
+    const sett = Date.now() - 7 * 86400000;
+    secs.forEach(x => {
+      const rows = (DPG && DPG.rows[x.id]) || null, err = (DPG && DPG.err[x.id]) || '';
+      const o = { id: x.id, nome: x.nome, err: err, ok: !!rows, n: 0, iniziati: 0, recenti: 0, tent: 0, primo: 0, comp: 0 };
+      (rows || []).forEach(r => {
+        if (r.stato && r.stato !== 'attivo') return;
+        o.n++;
+        if ((r.tentate || 0) > 0 || (r.fatti || 0) > 0) o.iniziati++;
+        if (r.quando && Date.parse(r.quando) >= sett) o.recenti++;
+        o.tent += r.tentate || 0; o.primo += r.primo || 0; o.comp += r.totale ? r.fatti / r.totale : 0;
+        righe.push({ sez: x, r: r, mot: dpMotivi(r), comp: dpPc(r.fatti || 0, r.totale || 0) || 0, acc: dpPc(r.primo || 0, r.tentate || 0) });
+      });
+      o.compMedia = o.n ? Math.round(o.comp / o.n * 100) : 0;
+      o.acc = dpPc(o.primo, o.tent);
+      sum.push(o);
+    });
+    return { sum: sum, righe: righe };
+  }
+  const dpBadge = mot => mot.map(m => '<em class="dp-badge ' + m.c + '">' + esc(m.t) + '</em>').join('');
+  const dpOpen = x => '<button type="button" class="mini" data-act="dp-open" data-s="' + esc(x.sez.id) + '">Dettaglio</button>';
+  const dpStato = () => {
+    if (!DPG) return '';
+    return '<span class="dp-st">' + (DPG.busy ? 'Aggiorno…' : DPG.at ? 'Aggiornati alle ' + new Date(DPG.at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : '') + '</span><button type="button" class="mini" data-act="dp-reload"' + (DPG.busy ? ' disabled' : '') + '>Aggiorna</button>';
+  };
+  function dpCard() {
+    const secs = dpSezioni();
+    if (!secs) return '';
+    let h = '<section class="card dp"><div class="dp-h"><h2>Progressi degli allievi</h2><div class="dp-act">' + dpStato() + '</div></div>';
+    if (!secs.length) return h + '<p class="empty">' + (isSeg() ? 'Nessun allievo ha ancora una sezione di studio abilitata.' : 'Non hai sezioni di teoria assegnate.') + '</p></section>';
+    if (!DPG || (!DPG.at && DPG.busy)) return h + '<p class="empty">Carico i progressi…</p></section>';
+    const d = dpDati();
+    h += '<div class="dp-grid">' + d.sum.map(o => '<article class="dp-sez"><h3>' + esc(o.nome) + '</h3>' +
+      (o.err ? '<p class="note">Non disponibili: ' + esc(o.err) + '</p>' : !o.ok ? '<p class="note">Caricamento…</p>' :
+        '<p class="dp-n"><b>' + o.n + '</b> allievi · ' + o.iniziati + ' hanno iniziato · ' + o.recenti + ' attivi in settimana</p>' +
+        '<div class="dp-row"><span>Completamento medio</span>' + bar(o.compMedia, 100) + '<strong>' + o.compMedia + '%</strong></div>' +
+        '<div class="dp-row"><span>Esatte al 1° tentativo</span><span class="pg-es"><span class="' + dpCls(o.acc) + '">' + (o.acc == null ? '—' : o.acc + '%') + '</span></span></div>') +
+      '</article>').join('') + '</div>';
+    const seg = d.righe.filter(x => x.mot.length).sort((a, b) => b.mot[0].p - a.mot[0].p || (a.acc == null ? 101 : a.acc) - (b.acc == null ? 101 : b.acc));
+    const forti = seg.filter(x => x.mot[0].p >= 2);
+    h += '<h3 class="dp-sub">Da seguire</h3>';
+    if (!forti.length) h += '<p class="note">Nessun allievo con risultati bassi o fermo da più di due settimane.' + (seg.length ? ' ' + seg.length + ' non hanno ancora iniziato.' : '') + '</p>';
+    else h += '<ul class="dp-list">' + forti.slice(0, 6).map(x => '<li><span class="dp-nm"><strong>' + esc(x.r.nome) + '</strong><small>' + esc(x.sez.nome) + ' · ' + x.comp + '% completato</small></span><span class="dp-bd">' + dpBadge(x.mot) + '</span>' + dpOpen(x) + '</li>').join('') + '</ul>' + (forti.length > 6 ? '<p class="note">e altri ' + (forti.length - 6) + '.</p>' : '');
+    return h + '<div class="row">' + go_('p-progressi') + ' class="btn ghost">Tutti i progressi degli allievi</a></div></section>';
+  }
+  function dpView() {
+    let h = pageHead(isSeg() ? 'Segreteria' : 'Per i docenti', 'Progressi degli allievi', 'Tutte le sezioni di studio in un unico elenco. «Dettaglio» apre i capitoli e gli esercizi dell\'allievo nella sezione.') + waiting();
+    const secs = dpSezioni();
+    if (!secs) return h;
+    h += '<div class="adm-bar dp-bar"><label class="fld sm"><span>Sezione</span><select data-dpf="s"><option value="">Tutte</option>' + secs.map(x => '<option value="' + esc(x.id) + '"' + (DPF.s === x.id ? ' selected' : '') + '>' + esc(x.nome) + '</option>').join('') + '</select></label>' +
+      '<label class="fld sm"><span>Cerca</span><input type="search" data-dpf="q" value="' + esc(DPF.q) + '" placeholder="Nome dell\'allievo"></label>' +
+      '<label class="fld sm"><span>Ordina per</span><select data-dpf="ord">' + [['seguire', 'Da seguire prima'], ['nome', 'Nome'], ['comp', 'Completamento (più indietro prima)'], ['acc', 'Esatte (più basse prima)'], ['quando', 'Ultima attività']].map(o => '<option value="' + o[0] + '"' + (DPF.ord === o[0] ? ' selected' : '') + '>' + o[1] + '</option>').join('') + '</select></label>' +
+      '<div class="dp-act">' + dpStato() + '</div></div>';
+    if (!DPG || (!DPG.at && DPG.busy)) return h + '<p class="empty">Carico i progressi…</p>';
+    const d = dpDati();
+    const errs = d.sum.filter(o => o.err);
+    if (errs.length) h += '<p class="alert bad" role="alert">' + errs.map(o => esc(o.nome) + ': ' + esc(o.err)).join(' · ') + '</p>';
+    const q = DPF.q.trim().toLowerCase();
+    let L = d.righe.filter(x => (!DPF.s || x.sez.id === DPF.s) && (!q || String(x.r.nome).toLowerCase().includes(q)));
+    const nm = (a, b) => String(a.r.nome).localeCompare(String(b.r.nome), 'it');
+    const sorters = {
+      nome: nm,
+      comp: (a, b) => a.comp - b.comp || nm(a, b),
+      acc: (a, b) => (a.acc == null ? 101 : a.acc) - (b.acc == null ? 101 : b.acc) || nm(a, b),
+      quando: (a, b) => (Date.parse(b.r.quando || '') || 0) - (Date.parse(a.r.quando || '') || 0) || nm(a, b),
+      seguire: (a, b) => ((b.mot[0] || {}).p || 0) - ((a.mot[0] || {}).p || 0) || (a.acc == null ? 101 : a.acc) - (b.acc == null ? 101 : b.acc) || nm(a, b)
+    };
+    L.sort(sorters[DPF.ord] || nm);
+    if (!L.length) return h + '<p class="empty">' + (d.righe.length ? 'Nessun allievo corrisponde alla ricerca.' : 'Nessun allievo attivo nelle sezioni di studio.') + '</p>';
+    h += '<p class="hint">' + L.length + (L.length === 1 ? ' riga' : ' righe') + ' (un allievo compare una volta per ogni sezione abilitata). «Esatte» = risposte giuste al primo tentativo nelle domande a scelta.</p>';
+    h += '<div class="dp-wrap"><table class="pg-tab dp-tab"><thead><tr><th>Allievo</th><th>Sezione</th><th>Completamento</th><th>Esatte</th><th class="hide-s">Ultima attività</th><th class="hide-s">Da ripassare</th><th></th></tr></thead><tbody>' +
+      L.map(x => '<tr><td><strong>' + esc(x.r.nome) + '</strong>' + (x.mot.length ? '<div class="dp-bd">' + dpBadge(x.mot) + '</div>' : '') + '</td><td>' + esc(x.sez.nome) + '</td><td class="dp-c">' + bar(x.r.fatti || 0, x.r.totale || 0) + '<span>' + (x.r.fatti || 0) + '/' + (x.r.totale || 0) + ' · ' + x.comp + '%</span></td>' +
+        '<td class="n"><span class="pg-es"><span class="' + dpCls(x.acc) + '">' + (x.acc == null ? '—' : x.acc + '%') + '</span></span></td><td class="hide-s">' + esc(fmtData(x.r.quando)) + '</td><td class="hide-s">' + ((x.r.deboli && x.r.deboli.length) ? x.r.deboli.map(esc).join(', ') : '—') + '</td><td>' + dpOpen(x) + '</td></tr>').join('') +
+      '</tbody></table></div>';
+    return h;
+  }
   function secCard(s, extra) {
     return '<article class="sec-card"><h3>' + esc(s.nome) + '</h3><p>' + esc(s.desc) + '</p><p class="sec-n">' + s.capitoli + ' capitoli · ' + s.esercizi + ' esercizi' + (extra || '') + '</p><button type="button" class="btn" data-act="open-sez" data-s="' + esc(s.id) + '">Apri lezioni e materiali</button></article>';
   }
   const pageHead = (eyebrow, title, lead) => '<header class="ch-h"><p class="eyebrow">' + esc(eyebrow) + '</p><h1>' + esc(title) + '</h1>' + (lead ? '<p class="lead sm">' + esc(lead) + '</p>' : '') + '</header>';
-  const waiting = () => (adm && adm.err ? '<p class="alert bad" role="alert">' + esc(adm.err) + '</p>' : '') + (adm && adm.busy && !(PORTAL && PORTAL.secs) ? '<p class="empty">Caricamento…</p>' : '');
+  const waiting = () => (adm && adm.err ? '<p class="alert bad" role="alert">' + esc(adm.err) + '</p>' : '') + (adm && adm.busy ? (!(PORTAL && PORTAL.secs) ? '<p class="empty">Caricamento…</p>' : '<p class="sync-note" role="status">Aggiorno i dati…</p>') : '');
 
   function portalNav() {
     let h = '<nav class="side" aria-label="Menu">';
@@ -2027,6 +2258,7 @@ const NOTA = (function () {
       h += '<div class="n-sep first">Segreteria</div>' + PAGES_SEG.map(p => go_(p[0]) + ' class="n-home ' + (route.v === p[0] ? 'cur' : '') + '">' + esc(p[1]) + '</a>').join('');
     } else {
       h += go_('portal') + ' class="n-home ' + (route.v === 'portal' ? 'cur' : '') + '">Le mie sezioni</a>';
+      if (isStaff()) h += go_('p-progressi') + ' class="n-home ' + (route.v === 'p-progressi' ? 'cur' : '') + '">Progressi allievi</a>';
       if (PORTAL && PORTAL.grp && PORTAL.grp.length) h += go_('materiali') + ' class="n-home ' + (route.v === 'materiali' ? 'cur' : '') + '">Materiali</a>';
     }
     h += '<div class="n-sep">Sezioni di studio</div>' + ((PORTAL && PORTAL.secs) || []).map(s => '<button type="button" class="n-home as-link" data-act="open-sez" data-s="' + esc(s.id) + '">' + esc(s.nome) + '</button>').join('');
@@ -2040,6 +2272,7 @@ const NOTA = (function () {
       h += waiting();
       if (PORTAL && PORTAL.secs) {
         h += doc ? (PORTAL.secs.length ? '<section class="card"><h2>Teoria e armonia · supporto didattico</h2><p class="note">Materiale messo a disposizione dei docenti come supporto alla didattica: teoria, esercizi con soluzioni, note per il docente, giochi e schede. È in sola consultazione.</p><div class="sec-grid">' + PORTAL.secs.map(s => secCard(s)).join('') + '</div></section>' : '') + (PORTAL.grp && PORTAL.grp.length ? '' : (PORTAL.secs.length ? '' : '<p class="empty">Non hai ancora nessun gruppo assegnato. Scrivi alla segreteria.</p>')) : PORTAL.secs.length ? '<div class="sec-grid">' + PORTAL.secs.map(s => secCard(s)).join('') + '</div>' : '<p class="empty">Non hai ancora nessuna sezione abilitata. Scrivi alla segreteria.</p>';
+        if (doc) h += dpCard();
         if (PORTAL.grp && PORTAL.grp.length) h += '<section class="card"><h2>Materiali</h2><p>Spartiti, basi, documenti e assegni delle lezioni dei tuoi gruppi: ' + PORTAL.grp.map(g => esc(g.nome)).join(', ') + '.</p><div class="row">' + go_('materiali') + ' class="btn">Apri i materiali</a></div></section>';
       }
       return h;
@@ -2049,6 +2282,7 @@ const NOTA = (function () {
     h += waiting();
     if (!d) return h;
     h += '<div class="stat-grid"><div class="stat"><b>' + d.allievi + '</b><span>Allievi</span></div><div class="stat"><b>' + d.docenti + '</b><span>Docenti</span></div><div class="stat"><b>' + d.segreteria + '</b><span>Segreteria</span></div><div class="stat' + (d.sospesi ? ' warn' : '') + '"><b>' + d.sospesi + '</b><span>Sospesi</span></div></div>';
+    h += dpCard();
     h += '<section class="card"><h2>Teoria e Armonia</h2><p>Sezioni di studio con teoria, esempi ed esercizi in aula e a casa. Si abilitano per ogni allievo; ai docenti si possono mettere a disposizione come supporto didattico (sola consultazione).</p><div class="sec-grid">' + d.sezioni.map(s => secCard(s, ' · ' + s.allievi + ' allievi')).join('') + '</div></section>';
     h += '<div class="tile-grid">' + [['p-allievi', 'Allievi', 'Elenco, sezioni e gruppi di ognuno'], ['p-elenco-doc', 'Docenti', 'Elenco, credenziali e sospensione'], ['p-account', 'Account e inviti', 'Crea un accesso e invia le credenziali su WhatsApp'], ['p-docenti', 'Assegnazioni dei docenti', 'Sezioni e gruppi di ogni docente'], ['p-recupero', 'Recupero password', 'Nuova password provvisoria'], ['p-corsi', 'Corsi e sezioni', 'Sezioni di studio e gruppi'], ['p-archivio', 'Archivio Google Drive', 'Cartelle dei materiali']].map(t => go_(t[0]) + ' class="tile"><strong>' + t[1] + '</strong><span>' + t[2] + '</span></a>').join('') + '</div>';
     return h;
@@ -2341,7 +2575,7 @@ const NOTA = (function () {
     if (isPortal()) {
       adm = adm || newAdm();
       const v = route.v;
-      main = v === 'p-allievi' ? allieviView() : v === 'p-corsi' ? corsiView() : v === 'p-recupero' ? recuperoView() : v === 'p-archivio' ? archivioView() : v === 'p-account' ? accountView() : v === 'p-elenco-doc' ? elencoDocentiView() : v === 'p-docenti' ? docentiView() : v === 'materiali' ? materialiView() : portalHome();
+      main = v === 'p-allievi' ? allieviView() : v === 'p-corsi' ? corsiView() : v === 'p-recupero' ? recuperoView() : v === 'p-archivio' ? archivioView() : v === 'p-account' ? accountView() : v === 'p-elenco-doc' ? elencoDocentiView() : v === 'p-docenti' ? docentiView() : v === 'materiali' ? materialiView() : v === 'p-progressi' ? dpView() : portalHome();
       side = portalNav();
     } else {
       if (!DATA) { app.innerHTML = '<div class="loading">Domus Form Academy</div>'; return; }
@@ -2373,12 +2607,12 @@ const NOTA = (function () {
     leaveArmed = false;
     let m;
     pendingDelete = null; saveMsg = '';
-    if (PORTAL_ROUTES.indexOf(h) >= 0 && (h === 'portal' || h === 'materiali' || isSeg())) {
+    if (PORTAL_ROUTES.indexOf(h) >= 0 && (h === 'portal' || h === 'materiali' || isSeg() || (h === 'p-progressi' && isStaff()))) {
       editing = false; dirty = false; route = { v: h, i: 0, tab: 'teoria' };
       if (adm) { adm.cred = null; adm.editId = null; adm.confirm = null; adm.gEdit = null; adm.gMsg = ''; adm.q = ''; }
       document.body.classList.remove('idx-open'); window.scrollTo({ top: 0 });
       const caricato = PORTAL && PORTAL.secs && (!isSeg() || adm.users);
-      if (h === 'portal' || !caricato) loadPortal(); else if (h === 'materiali') initMat(); else render();
+      if (h === 'portal' || !caricato) loadPortal(); else if (h === 'materiali') initMat(); else if (h === 'p-progressi') { render(); loadDashProg(); } else render();
       return;
     }
     if (!DATA) return;
@@ -2454,6 +2688,8 @@ const NOTA = (function () {
       case 'c-del': if (pendingDelete === 'c') { DATA.capitoli.splice(route.i, 1); pendingDelete = null; dirty = true; editing = false; route = { v: 'home', i: 0, tab: 'teoria' }; render(); } else { pendingDelete = 'c'; render(); } break;
       case 'addcap': DATA.capitoli.push({ id: 'c' + Date.now().toString(36), percorso: 0, titolo: 'Nuovo capitolo', obiettivi: [], teoria: [{ h: 'Primo paragrafo', p: 'Scrivi qui il testo.' }], ricorda: [], docente: '', aula: [], casa: [] }); dirty = true; editOnArrive = true; go_noguard('cap-' + DATA.capitoli.length); break;
       case 'pg-reload': loadProg(); break;
+      case 'dp-reload': loadDashProg(true); return;
+      case 'dp-open': PG_PEND = true; openSez(el.dataset.s); return;
       case 'open-sez': openSez(el.dataset.s); return;
       case 'mat-open': MAT.msg = ''; loadMat(el.dataset.id); return;
       case 'mat-go': go('materiali'); MAT = MAT || {}; MAT.gid = el.dataset.id; return;
@@ -2522,6 +2758,7 @@ const NOTA = (function () {
     }
     else if (el.dataset.act === 'mat-up') upMat(el);
     else if (el.dataset.adm) { adm[el.dataset.adm] = el.value; render(); }
+    else if (el.dataset.dpf && el.dataset.dpf !== 'q') { DPF[el.dataset.dpf] = el.value; render(); }
     else if (el.dataset.pg) { pg[el.dataset.pg] = el.value; render(); }
     else if (el.form && el.form.dataset.form === 'nuova' && (el.name === 'ruolo' || el.name === 'indiv')) { readNew(el.form); render(); }
   });
@@ -2540,6 +2777,7 @@ const NOTA = (function () {
       if (ch && bar && route.v === 'cap') { const tab = route.tab === 'casa' ? 'casa' : 'aula', b = DPE() ? curBlk(ch, tab) : null; const tmp = document.createElement('div'); tmp.innerHTML = testBar(ch, tab, b); if (tmp.firstChild) bar.replaceWith(tmp.firstChild); }
     }
     else if (el.dataset.ed && el.tagName !== 'SELECT' && el.type !== 'number') onEdit(el);
+    else if (el.dataset.dpf === 'q') { DPF.q = el.value; const pos = el.selectionStart; render(); const n = $('[data-dpf="q"]'); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) { } } }
     else if (el.dataset.adm === 'q') { adm.q = el.value; const pos = el.selectionStart; render(); const n = $('[data-adm="q"]'); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) { } } }
     else if (el.form && el.form.dataset.form === 'nuova') {
       if (el.name === 'nome' && !adm.uTouched) { const u = el.form.elements.utente; u.value = slug(el.value); }
@@ -2561,7 +2799,7 @@ const NOTA = (function () {
       login.utente = utente; login.msg = ''; login.busy = true; render();
       api('login', utente, password).then(r => {
         SESS = { token: r.token, user: r.utente }; lastPwd = password;
-        try { localStorage.setItem(KEY_S, r.token); } catch (e) { }
+        salvaSess();
         login.busy = false; login.msg = '';
         if (SESS.user.cambio) { pw = { msg: '', busy: false }; render(); } else startCourse();
       }).catch(e => { login.busy = false; login.msg = e.message; render(); });
@@ -2572,7 +2810,7 @@ const NOTA = (function () {
       pw.busy = true; pw.msg = ''; render();
       tcall('cambiaPassword', vecchia, nuova).then(r => {
         SESS = { token: r.token, user: r.utente };
-        try { localStorage.setItem(KEY_S, r.token); } catch (e) { }
+        salvaSess();
         lastPwd = ''; pwOpen = false; pw = { msg: '', busy: false };
         if (DATA || PORTAL) { render(); toast('Password cambiata.'); } else startCourse();
       }).catch(e => { pw.busy = false; pw.msg = e.message; if (SESS) render(); });
@@ -2626,7 +2864,7 @@ const NOTA = (function () {
       pw.busy = true; pw.msg = ''; render();
       api('reimpostaPassword', RESET, nuova).then(r => {
         RESET = null; SESS = { token: r.token, user: r.utente }; lastPwd = '';
-        try { localStorage.setItem(KEY_S, r.token); } catch (e) { }
+        salvaSess();
         pw = { msg: '', busy: false }; startCourse(); toast('Password cambiata. Benvenuto!');
       }).catch(e => { pw.busy = false; pw.msg = e.message; render(); });
     } else if (kind === 'emailrec') {
@@ -2674,17 +2912,29 @@ const NOTA = (function () {
       app.innerHTML = '<div class="loading">Domus Form Academy</div>';
       api('login', acc.u, acc.p).then(r => {
         SESS = { token: r.token, user: r.utente }; lastPwd = acc.p;
-        try { localStorage.setItem(KEY_S, r.token); } catch (e) { }
+        salvaSess();
         login.busy = false; login.msg = '';
         if (SESS.user.cambio) { pw = { msg: '', busy: false }; render(); } else startCourse();
       }).catch(e => { login.busy = false; login.msg = 'Il link è già stato usato o non è più valido: accedi con nome utente e password.'; render(); });
       return;
     }
-    let tok = null; try { tok = localStorage.getItem(KEY_S); } catch (e) { }
+    let tok = null, usr = null; try { tok = localStorage.getItem(KEY_S); usr = JSON.parse(localStorage.getItem(KEY_U) || 'null'); } catch (e) { }
     if (!tok) { render(); api('ping').catch(() => { }); return; }
+    if (usr && usr.id && usr.ruolo && !usr.cambio) {
+      // avvio immediato: si mostra subito la dashboard salvata e intanto si verifica la sessione col server
+      SESS = { token: tok, user: usr }; lastPwd = ''; startCourse();
+      api('ripristina', tok).then(r => {
+        if (!SESS || SESS.token !== tok) return;
+        const prima = SESS.user; SESS.user = r.utente; salvaSess();
+        if (r.utente.ruolo !== prima.ruolo) startCourse();
+        else if (r.utente.cambio) { pw = { msg: '', busy: false }; render(); }
+        else if (r.utente.nome !== prima.nome) render();
+      }).catch(e => { if (SESS && SESS.token === tok && /sessione|non valid|scadut|accedi/i.test(e.message)) expire(); });
+      return;
+    }
     app.innerHTML = '<div class="loading">Domus Form Academy</div>';
     api('ripristina', tok).then(r => {
-      SESS = { token: tok, user: r.utente }; lastPwd = '';
+      SESS = { token: tok, user: r.utente }; lastPwd = ''; salvaSess();
       if (SESS.user.cambio) { pw = { msg: '', busy: false }; render(); } else startCourse();
     }).catch(() => { try { localStorage.removeItem(KEY_S); } catch (e) { } render(); });
   }
