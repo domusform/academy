@@ -441,6 +441,35 @@ a.btn { display: inline-flex; align-items: center; text-decoration: none; }
 a.mini { display: inline-flex; align-items: center; text-decoration: none; }
 .crumbs { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 15px; }
 .as-link { background: none; border: 0; padding: 4px 2px; font: inherit; color: var(--accent); cursor: pointer; text-decoration: underline; }
+.cp-sum { font-size: 14px; color: var(--muted); } .cp-sum b { color: var(--ink, inherit); font-size: 1.05rem; }
+.cp-g { border: 1px solid var(--line); border-left: 6px solid #8a94a6; border-radius: 12px; padding: 12px 14px; display: grid; gap: 8px; background: var(--surface); }
+.cp-g.cp-solf { border-left-color: #2f7d4f; } .cp-g.cp-str { border-left-color: #3b47d6; } .cp-g.cp-band { border-left-color: #b4561c; } .cp-g.cp-rec { border-left-color: #8a3fb0; }
+.cp-h { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.cp-h small { color: var(--muted); font-size: 13px; }
+.cp-h .mini { margin-left: auto; }
+.cp-cat { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; border-radius: 6px; padding: 2px 8px; color: #fff; background: #8a94a6; }
+.cp-solf .cp-cat { background: #2f7d4f; } .cp-str .cp-cat { background: #3b47d6; } .cp-band .cp-cat { background: #b4561c; } .cp-rec .cp-cat { background: #8a3fb0; }
+.cp-it { border-top: 1px dashed var(--line); padding-top: 8px; }
+.cp-it.done { opacity: .7; }
+.cp-nota { background: #fffbea; border: 1px solid #f3e3a1; border-radius: 10px; padding: 8px 10px; }
+.cp-chk { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; }
+.cp-chk input { width: 22px; height: 22px; margin-top: 2px; flex: none; }
+.cp-chk span { display: grid; } .cp-chk small { color: var(--muted); font-size: 12px; }
+.cp-it ul.as-v { margin: 4px 0 2px 32px; padding-left: 1.1em; }
+.cp-it .as-links { margin-left: 32px; }
+.cp-old summary { cursor: pointer; font-size: 13px; font-weight: 700; color: var(--muted); }
+.cp-ok { margin: 0; }
+.cp { gap: 12px; }
+.cl-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+.cl-btn { display: grid; gap: 2px; text-align: left; border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; background: var(--surface); cursor: pointer; font: inherit; color: inherit; min-height: 56px; }
+.cl-btn:hover, .cl-btn:focus-visible { border-color: var(--accent, #3b47d6); }
+.cl-btn span { font-size: 13px; color: var(--muted); }
+.chi-tag { display: inline-block; font-style: normal; font-size: 12px; font-weight: 700; border-radius: 6px; padding: 1px 6px; background: #fdf0c8; color: #7a5a00; vertical-align: middle; }
+.chi-tag.all { background: var(--line); color: inherit; }
+.chi-al, .solf-al { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 2px 12px; margin-top: 6px; }
+.solf-al { max-height: 320px; overflow: auto; }
+.nt-t { white-space: pre-wrap; margin: 4px 0; }
+.solf-new input { flex: 1 1 260px; }
 .as-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
 .as-it { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; background: var(--fig); }
 .as-it.done { opacity: .75; }
@@ -966,7 +995,7 @@ const NOTA = (function () {
       if (!u) return;
       const staff = u.ruolo !== 'allievo';
       Object.keys(localStorage).forEach(k => {
-        if (k === 'dfa-pc-' + u.id || k === 'dfa-dp-' + u.id || k.indexOf('dfa-key-' + u.id + '-') === 0 || (staff && k.indexOf('dfa-cc2-' + u.id + '-') === 0)) localStorage.removeItem(k);
+        if (k === 'dfa-pc-' + u.id || k === 'dfa-dp-' + u.id || k === 'dfa-cp-' + u.id || k.indexOf('dfa-key-' + u.id + '-') === 0 || (staff && k.indexOf('dfa-cc2-' + u.id + '-') === 0)) localStorage.removeItem(k);
       });
     } catch (e) { }
   }
@@ -1027,7 +1056,7 @@ const NOTA = (function () {
     });
   }
   function expire(msg) {
-    pulisciCache(SESS && SESS.user); DPG = null;
+    pulisciCache(SESS && SESS.user); DPG = null; COMP = null;
     SESS = null; DATA = null; SEZ = null; PROG = {}; tries = {}; savedT = {}; adm = null; pg = null; PORTAL = null; MAT = null; editing = false; dirty = false; route = { v: 'portal', i: 0, tab: 'teoria' };
     login.msg = msg || 'La sessione è scaduta. Accedi di nuovo.'; login.busy = false;
     render();
@@ -2010,11 +2039,11 @@ const NOTA = (function () {
   const SEZ_LIST = [{ id: 'kids', nome: 'Teoria Musicale Kids' }, { id: 'basic', nome: 'Teoria Musicale Basic' }, { id: 'teoria', nome: 'Teoria Musicale' }, { id: 'armonia1', nome: 'Armonia 1' }, { id: 'armonia2', nome: 'Armonia 2' }];
   const sezNome = id => (SEZ_LIST.filter(s => s.id === id)[0] || {}).nome || id;
   const gNome = id => ((adm && adm.grp || PORTAL && PORTAL.grp || []).filter(g => g.id === id)[0] || {}).nome || id;
-  const PAGES_SEG = [['portal', 'Dashboard'], ['p-progressi', 'Progressi allievi'], ['p-allievi', 'Allievi'], ['p-elenco-doc', 'Docenti'], ['p-corsi', 'Corsi e sezioni'], ['p-recupero', 'Recupero password'], ['p-archivio', 'Archivio Google Drive'], ['p-account', 'Account e inviti'], ['p-docenti', 'Assegnazioni dei docenti'], ['materiali', 'Materiali']];
+  const PAGES_SEG = [['portal', 'Dashboard'], ['p-progressi', 'Progressi allievi'], ['p-solfeggio', 'Classi di solfeggio'], ['p-allievi', 'Allievi'], ['p-elenco-doc', 'Docenti'], ['p-corsi', 'Corsi e sezioni'], ['p-recupero', 'Recupero password'], ['p-archivio', 'Archivio Google Drive'], ['p-account', 'Account e inviti'], ['p-docenti', 'Assegnazioni dei docenti'], ['materiali', 'Materiali']];
   const PORTAL_ROUTES = PAGES_SEG.map(p => p[0]);
   const isPortal = () => PORTAL_ROUTES.indexOf(route.v) >= 0;
   let PORTAL = null, MAT = null;
-  const AREA_VUOTA = 'Altri corsi', AREE_ORD = ['Band', 'Recitazione', 'Corsi individuali'];
+  const AREA_VUOTA = 'Altri corsi', AREA_SOLF = 'Teoria e solfeggio', AREE_ORD = ['Teoria e solfeggio', 'Band', 'Recitazione', 'Corsi individuali'];
   const areaDi = g => (g && g.area) || AREA_VUOTA;
   function perArea(items) {
     const m = {};
@@ -2060,6 +2089,7 @@ const NOTA = (function () {
     if (!PORTAL.secs) { const pc = pcGet(); if (pc && pc.secs) { PORTAL.secs = pc.secs; PORTAL.grp = pc.grp; PORTAL.dash = pc.dash; if (isSeg()) { adm.users = pc.users; adm.set = pc.set; adm.grp = pc.gestione; } } }
     adm.busy = true; adm.err = ''; render();
     if (PORTAL.secs && dpVisible()) loadDashProg();
+    if (isAll()) loadCompiti();
     const legacy = () => {
       const j = [tcall('elencoSezioni').then(cur(r => { PORTAL.secs = r; })), tcall('elencoGruppi').then(cur(r => { PORTAL.grp = r; }))];
       if (isSeg()) j.push(tcall('cruscottoSegreteria').then(cur(r => { PORTAL.dash = r; })), tcall('elencoUtenze').then(cur(r => { adm.users = r; })), tcall('leggiModelloMessaggio').then(cur(r => { adm.set = r; })), tcall('gestioneGruppi').then(cur(r => { adm.grp = r; })));
@@ -2130,6 +2160,62 @@ const NOTA = (function () {
     if (!SESS || isSeg() || !PORTAL || !PORTAL.secs) return;
     const todo = PORTAL.secs.map(s => s.id).filter(id => !ccGet(id)).slice(0, 3);
     todo.reduce((p, id) => p.then(() => fetchCorso(id)).catch(() => { }), Promise.resolve());
+  }
+
+  /* ---------- «I miei compiti»: assegni e note di tutti i corsi dell'allievo nella pagina iniziale ---------- */
+  let COMP = null;
+  const cpKey = () => 'dfa-cp-' + (SESS && SESS.user ? SESS.user.id : '');
+  function loadCompiti() {
+    if (!isAll()) return;
+    if (!COMP) { try { const c = JSON.parse(localStorage.getItem(cpKey()) || 'null'); if (c && c.gruppi) COMP = { gruppi: c.gruppi, at: c.at, busy: false, off: false }; } catch (e) { } }
+    COMP = COMP || { gruppi: null, at: 0, busy: false, off: false };
+    if (COMP.busy) return;
+    COMP.busy = true;
+    const uid = SESS.user.id;
+    tcall('compitiAllievo').then(r => {
+      if (!SESS || SESS.user.id !== uid || !COMP) return;
+      COMP.gruppi = r.gruppi || []; COMP.at = Date.now(); COMP.off = false;
+      try { localStorage.setItem(cpKey(), JSON.stringify({ gruppi: COMP.gruppi, at: COMP.at })); } catch (e) { }
+    }).catch(e => { if (COMP && /Operazione non valida/.test(e.message)) COMP.off = true; })
+      .then(() => { if (!COMP) return; COMP.busy = false; if (SESS && isPortal() && route.v === 'portal') render(); });
+  }
+  /* categoria del corso, per distinguere a colpo d'occhio solfeggio, strumento, band… */
+  function catCorso(area) {
+    if (area === AREA_SOLF) return { t: 'Solfeggio', c: 'solf' };
+    if (area === 'Corsi individuali') return { t: 'Strumento', c: 'str' };
+    if (area === 'Band') return { t: 'Band', c: 'band' };
+    if (area === 'Recitazione') return { t: 'Recitazione', c: 'rec' };
+    return { t: area || 'Corso', c: 'alt' };
+  }
+  function compitiCard() {
+    if (!COMP || COMP.off || !COMP.gruppi) return COMP && COMP.busy && !COMP.gruppi ? '<section class="card cp"><h2>I miei compiti</h2><p class="empty">Carico i compiti…</p></section>' : '';
+    const G = COMP.gruppi;
+    let daFare = 0, daLeggere = 0;
+    G.forEach(g => { daFare += g.assegni.filter(a => !a.fatto).length; daLeggere += g.note.filter(n => !n.letta).length; });
+    let h = '<section class="card cp" id="compiti"><div class="dp-h"><h2>I miei compiti</h2><span class="cp-sum">' + (daFare ? '<b>' + daFare + '</b> da fare' : 'Nessun compito da fare') + (daLeggere ? ' · <b>' + daLeggere + '</b> ' + (daLeggere === 1 ? 'nota da leggere' : 'note da leggere') : '') + '</span></div>';
+    if (!G.length) return h + '<p class="note">Quando i tuoi insegnanti pubblicano assegni o note, li trovi qui.</p></section>';
+    const ord = G.slice().sort((a, b) => {
+      const pa = a.assegni.filter(x => !x.fatto).length + a.note.filter(x => !x.letta).length, pb = b.assegni.filter(x => !x.fatto).length + b.note.filter(x => !x.letta).length;
+      return (pb ? 1 : 0) - (pa ? 1 : 0) || a.nome.localeCompare(b.nome, 'it');
+    });
+    h += ord.map(g => {
+      const cat = catCorso(g.area), aperti = g.assegni.filter(a => !a.fatto), fatti = g.assegni.filter(a => a.fatto), nuove = g.note.filter(n => !n.letta), lette = g.note.filter(n => n.letta);
+      const prof = g.assegni.concat(g.note).map(x => x.autore).filter(Boolean).filter((v, i, a) => a.indexOf(v) === i);
+      let x = '<article class="cp-g cp-' + cat.c + '"><header class="cp-h"><span class="cp-cat">' + esc(cat.t) + '</span><strong>' + esc(g.nome) + '</strong>' + (prof.length ? '<small>' + esc(prof.join(', ')) + '</small>' : '') + '<button type="button" class="mini" data-act="cl-open" data-id="' + esc(g.id) + '">Apri il corso</button></header>';
+      nuove.forEach(n => { x += '<div class="cp-it cp-nota"><p class="as-meta">📝 Nota · ' + esc(fmtData(n.creato)) + (n.perTe ? ' · <span class="chi-tag">Per te</span>' : '') + '</p><p class="nt-t">' + esc(n.testo) + '</p><button type="button" class="mini" data-act="cp-letta" data-g="' + esc(g.id) + '" data-id="' + esc(n.id) + '">Ho letto</button></div>'; });
+      aperti.forEach(a => {
+        x += '<div class="cp-it"><label class="cp-chk"><input type="checkbox" data-act="cp-fatto" data-g="' + esc(g.id) + '" data-id="' + esc(a.id) + '"><span><strong>' + esc(a.titolo || 'Assegno') + '</strong>' + (a.perTe ? ' <em class="chi-tag">Solo per te</em>' : '') + '<small>Lezione di ' + esc(dataIt(a.data)) + '</small></span></label>';
+        if (a.voci.length) x += '<ul class="as-v">' + a.voci.map(v => '<li>' + esc(v) + '</li>').join('') + '</ul>';
+        if (a.link.length) x += '<div class="as-links">' + a.link.map(l => '<a href="' + esc(l.u) + '" target="_blank" rel="noopener noreferrer">🔗 ' + esc(l.t || l.u) + '</a>').join('') + '</div>';
+        x += '</div>';
+      });
+      if (!aperti.length && !nuove.length) x += '<p class="note cp-ok">✓ Tutto fatto per questo corso.</p>';
+      if (fatti.length || lette.length) x += '<details class="cp-old"><summary>Già fatti e note lette (' + (fatti.length + lette.length) + ')</summary>' +
+        fatti.map(a => '<div class="cp-it done"><label class="cp-chk"><input type="checkbox" checked data-act="cp-fatto" data-g="' + esc(g.id) + '" data-id="' + esc(a.id) + '"><span><strong>' + esc(a.titolo || 'Assegno') + '</strong><small>Lezione di ' + esc(dataIt(a.data)) + '</small></span></label></div>').join('') +
+        lette.map(n => '<div class="cp-it done"><p class="as-meta">📝 ' + esc(fmtData(n.creato)) + '</p><p class="nt-t">' + esc(n.testo) + '</p></div>').join('') + '</details>';
+      return x + '</article>';
+    }).join('');
+    return h + '</section>';
   }
 
   /* ---------- progressi degli allievi nella dashboard ---------- */
@@ -2268,11 +2354,14 @@ const NOTA = (function () {
   function portalHome() {
     if (!isSeg()) {
       const doc = SESS.user.ruolo === 'docente';
-      let h = pageHead('Domus Form Academy', 'Ciao ' + String(SESS.user.nome).split(' ')[0], doc ? 'Apri i materiali dei tuoi gruppi e le sezioni di teoria a tua disposizione.' : 'Scegli la sezione di studio o i materiali del tuo gruppo.');
+      let h = pageHead('Domus Form Academy', 'Ciao ' + String(SESS.user.nome).split(' ')[0], doc ? 'Apri i materiali dei tuoi gruppi e le sezioni di teoria a tua disposizione.' : 'Qui trovi i compiti di tutti i tuoi corsi, le sezioni di studio e i materiali.');
       h += waiting();
+      if (!doc) h += compitiCard();
       if (PORTAL && PORTAL.secs) {
         h += doc ? (PORTAL.secs.length ? '<section class="card"><h2>Teoria e armonia · supporto didattico</h2><p class="note">Materiale messo a disposizione dei docenti come supporto alla didattica: teoria, esercizi con soluzioni, note per il docente, giochi e schede. È in sola consultazione.</p><div class="sec-grid">' + PORTAL.secs.map(s => secCard(s)).join('') + '</div></section>' : '') + (PORTAL.grp && PORTAL.grp.length ? '' : (PORTAL.secs.length ? '' : '<p class="empty">Non hai ancora nessun gruppo assegnato. Scrivi alla segreteria.</p>')) : PORTAL.secs.length ? '<div class="sec-grid">' + PORTAL.secs.map(s => secCard(s)).join('') + '</div>' : '<p class="empty">Non hai ancora nessuna sezione abilitata. Scrivi alla segreteria.</p>';
         if (doc) h += dpCard();
+        const solf = (PORTAL.grp || []).filter(g => g.area === AREA_SOLF).sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
+        if (solf.length && (doc || !(COMP && COMP.gruppi && !COMP.off))) h += '<section class="card"><h2>' + (solf.length === 1 ? 'La tua classe' : 'Le tue classi') + ' di Teoria e solfeggio</h2><p>' + (doc ? 'Pubblica assegni e note per tutta la classe o per i singoli allievi.' : 'Qui trovi gli assegni e le note del tuo insegnante.') + '</p><div class="cl-grid">' + solf.map(g => '<button type="button" class="cl-btn" data-act="cl-open" data-id="' + esc(g.id) + '"><strong>' + esc(g.nome) + '</strong><span>' + (doc ? 'Assegni e note' : 'Apri assegni e note') + '</span></button>').join('') + '</div></section>';
         if (PORTAL.grp && PORTAL.grp.length) h += '<section class="card"><h2>Materiali</h2><p>Spartiti, basi, documenti e assegni delle lezioni dei tuoi gruppi: ' + PORTAL.grp.map(g => esc(g.nome)).join(', ') + '.</p><div class="row">' + go_('materiali') + ' class="btn">Apri i materiali</a></div></section>';
       }
       return h;
@@ -2284,8 +2373,31 @@ const NOTA = (function () {
     h += '<div class="stat-grid"><div class="stat"><b>' + d.allievi + '</b><span>Allievi</span></div><div class="stat"><b>' + d.docenti + '</b><span>Docenti</span></div><div class="stat"><b>' + d.segreteria + '</b><span>Segreteria</span></div><div class="stat' + (d.sospesi ? ' warn' : '') + '"><b>' + d.sospesi + '</b><span>Sospesi</span></div></div>';
     h += dpCard();
     h += '<section class="card"><h2>Teoria e Armonia</h2><p>Sezioni di studio con teoria, esempi ed esercizi in aula e a casa. Si abilitano per ogni allievo; ai docenti si possono mettere a disposizione come supporto didattico (sola consultazione).</p><div class="sec-grid">' + d.sezioni.map(s => secCard(s, ' · ' + s.allievi + ' allievi')).join('') + '</div></section>';
-    h += '<div class="tile-grid">' + [['p-allievi', 'Allievi', 'Elenco, sezioni e gruppi di ognuno'], ['p-elenco-doc', 'Docenti', 'Elenco, credenziali e sospensione'], ['p-account', 'Account e inviti', 'Crea un accesso e invia le credenziali su WhatsApp'], ['p-docenti', 'Assegnazioni dei docenti', 'Sezioni e gruppi di ogni docente'], ['p-recupero', 'Recupero password', 'Nuova password provvisoria'], ['p-corsi', 'Corsi e sezioni', 'Sezioni di studio e gruppi'], ['p-archivio', 'Archivio Google Drive', 'Cartelle dei materiali']].map(t => go_(t[0]) + ' class="tile"><strong>' + t[1] + '</strong><span>' + t[2] + '</span></a>').join('') + '</div>';
+    h += '<div class="tile-grid">' + [['p-solfeggio', 'Classi di Teoria e solfeggio', 'Crea le classi, scegli allievi e docenti'], ['p-allievi', 'Allievi', 'Elenco, sezioni e gruppi di ognuno'], ['p-elenco-doc', 'Docenti', 'Elenco, credenziali e sospensione'], ['p-account', 'Account e inviti', 'Crea un accesso e invia le credenziali su WhatsApp'], ['p-docenti', 'Assegnazioni dei docenti', 'Sezioni e gruppi di ogni docente'], ['p-recupero', 'Recupero password', 'Nuova password provvisoria'], ['p-corsi', 'Corsi e sezioni', 'Sezioni di studio e gruppi'], ['p-archivio', 'Archivio Google Drive', 'Cartelle dei materiali']].map(t => go_(t[0]) + ' class="tile"><strong>' + t[1] + '</strong><span>' + t[2] + '</span></a>').join('') + '</div>';
     return h;
+  }
+
+  /* ---------- classi di Teoria e solfeggio (segreteria) ---------- */
+  function solfView() {
+    let h = pageHead('Segreteria', 'Classi di Teoria e solfeggio', 'Crea le classi di solfeggio e scegli gli allievi e i docenti di ciascuna. Il docente della classe pubblica assegni e note dalla pagina della classe.') + waiting();
+    if (!adm.grp || !adm.users) return h;
+    const gs = adm.grp.filter(g => g.area === AREA_SOLF).sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
+    const membri = (g, r) => adm.users.filter(u => u.ruolo === r && (u.gruppi || []).indexOf(g.id) >= 0);
+    h += '<section class="card"><h2>Nuova classe</h2><form class="row solf-new" data-form="solf-new" autocomplete="off"><input name="nome" required maxlength="60" placeholder="Es. Solfeggio 1 · martedì ore 17" aria-label="Nome della nuova classe"><button class="btn" type="submit"' + (adm.solfBusy ? ' disabled' : '') + '>Crea la classe</button></form>' + (adm.solfMsg ? '<p class="alert ' + (adm.solfBad ? 'bad' : 'ok') + '" role="status">' + esc(adm.solfMsg) + '</p>' : '') + '</section>';
+    if (!gs.length) return h + '<p class="empty">Non ci sono ancora classi di solfeggio. Creane una qui sopra.</p>';
+    h += '<ul class="u-list">' + gs.map(g => {
+      const al = membri(g, 'allievo'), dc = membri(g, 'docente');
+      let x = '<li class="u-row"><div class="u-main"><strong>' + esc(g.nome) + '</strong><span class="u-meta">' + al.length + (al.length === 1 ? ' allievo' : ' allievi') + ' · ' + (dc.length ? 'Docente: ' + esc(dc.map(d => d.nome).join(', ')) : 'Nessun docente') + '</span></div><div class="u-act"><button type="button" class="mini" data-act="solf-edit" data-id="' + esc(g.id) + '">' + (adm.solfEdit === g.id ? 'Chiudi' : 'Allievi e docenti') + '</button><button type="button" class="mini" data-act="cl-open" data-id="' + esc(g.id) + '">Assegni e note</button></div>';
+      if (adm.solfEdit === g.id) {
+        const box = (r, lista) => lista.map(u => '<label class="chk" data-n="' + esc((u.nome + ' ' + u.utente).toLowerCase()) + '"><input type="checkbox" name="membri" value="' + esc(u.id) + '" ' + ((u.gruppi || []).indexOf(g.id) >= 0 ? 'checked' : '') + '> ' + esc(u.nome) + (u.stato !== 'attivo' ? ' <em class="tag off">sospeso</em>' : '') + '</label>').join('');
+        const tutti = r => adm.users.filter(u => u.ruolo === r).sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
+        x += '<form class="u-edit" data-form="solf-membri" data-id="' + esc(g.id) + '"><fieldset class="chk-set"><legend>Docenti della classe</legend>' + (tutti('docente').length ? box('docente', tutti('docente')) : '<span class="note">Nessun docente: crealo da «Account e inviti».</span>') + '</fieldset>' +
+          '<fieldset class="chk-set"><legend>Allievi della classe</legend><label class="fld sm"><span>Cerca</span><input type="search" data-solf-q placeholder="Nome dell\'allievo"></label><div class="solf-al">' + (tutti('allievo').length ? box('allievo', tutti('allievo')) : '<span class="note">Nessun allievo inserito.</span>') + '</div></fieldset>' +
+          '<div class="row"><button class="btn" type="submit"' + (adm.solfBusy ? ' disabled' : '') + '>' + (adm.solfBusy ? 'Salvo…' : 'Salva allievi e docenti') + '</button><button type="button" class="btn ghost" data-act="solf-edit" data-id="' + esc(g.id) + '">Annulla</button></div></form>';
+      }
+      return x + '</li>';
+    }).join('') + '</ul>';
+    return h + '<p class="note">Per rinominare una classe usa «Corsi e sezioni». Ogni classe ha anche una cartella su Google Drive per spartiti ed esercizi da scaricare.</p>';
   }
 
   function userRow(u, o) {
@@ -2408,12 +2520,22 @@ const NOTA = (function () {
   let ASS = null;
   const oggiISO = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
   const dataIt = iso => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); if (!m) return iso || ''; const d = new Date(+m[1], +m[2] - 1, +m[3]); return d.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }); };
-  const nuovoAss = () => ({ id: '', data: oggiISO(), titolo: '', voci: ['', ''], link: [{ t: '', u: '' }] });
+  const nuovoAss = () => ({ id: '', data: oggiISO(), titolo: '', voci: ['', ''], link: [{ t: '', u: '' }], solo: false, dest: [] });
+  /* «A chi»: tutta la classe oppure allievi scelti */
+  function chiHTML(pre, f) {
+    const al = (ASS && ASS.allievi) || [];
+    if (!al.length) return '<p class="note">Nella classe non ci sono ancora allievi: sarà visibile a chi verrà aggiunto.</p>';
+    return '<fieldset class="chk-set"><legend>A chi</legend><label class="chk"><input type="radio" name="' + pre + 'chi" value="tutti" ' + (f.solo ? '' : 'checked') + '> Tutta la classe (' + al.length + ')</label><label class="chk"><input type="radio" name="' + pre + 'chi" value="solo" ' + (f.solo ? 'checked' : '') + '> Solo ad alcuni allievi</label>' +
+      (f.solo ? '<div class="chi-al">' + al.map(a => '<label class="chk"><input type="checkbox" name="' + pre + 'dest" value="' + esc(a.id) + '" ' + (f.dest.indexOf(a.id) >= 0 ? 'checked' : '') + '> ' + esc(a.nome) + '</label>').join('') + '</div><p class="note">Gli altri allievi della classe non lo vedono.</p>' : '') + '</fieldset>';
+  }
+  const leggiChi = (form, pre, f) => { const r = form.querySelector('input[name="' + pre + 'chi"]:checked'); if (r) f.solo = r.value === 'solo'; const cb = $$('input[name="' + pre + 'dest"]', form); if (cb.length) f.dest = cb.filter(c => c.checked).map(c => c.value); };
+  const perChi = (nomi) => nomi && nomi.length ? '<span class="chi-tag">Solo per: ' + esc(nomi.join(', ')) + '</span>' : '<span class="chi-tag all">Tutta la classe</span>';
   function loadAss() {
     if (!MAT || !MAT.gid) return;
     const gid = MAT.gid;
-    ASS = { gid: gid, list: (ASS && ASS.gid === gid) ? ASS.list : null, busy: true, err: '', form: (ASS && ASS.gid === gid) ? ASS.form : null, del: null, save: false, aperti: (ASS && ASS.aperti) || 0 };
-    tcall('elencoAssegni', gid).then(r => { if (!ASS || ASS.gid !== gid) return; ASS.list = r.assegni; ASS.scrive = r.puoScrivere; })
+    const st = ASS && ASS.gid === gid;
+    ASS = { gid: gid, list: st ? ASS.list : null, note: st ? ASS.note : undefined, allievi: st ? ASS.allievi : [], busy: true, err: '', form: st ? ASS.form : null, nform: st ? ASS.nform : null, del: null, ndel: null, save: false, nsave: false, aperti: (ASS && ASS.aperti) || 0, naperte: (ASS && ASS.naperte) || 0 };
+    tcall('elencoAssegni', gid).then(r => { if (!ASS || ASS.gid !== gid) return; ASS.list = r.assegni; ASS.scrive = r.puoScrivere; ASS.note = r.note; ASS.allievi = r.allievi || []; })
       .catch(e => { if (ASS) ASS.err = e.message; }).then(() => { if (ASS && ASS.gid === gid) { ASS.busy = false; if (route.v === 'materiali') render(); } });
   }
   function assFormHTML(f) {
@@ -2424,7 +2546,7 @@ const NOTA = (function () {
       '</div><button type="button" class="btn ghost sm" data-act="as-add" data-k="voci">+ Aggiungi voce</button></fieldset>' +
       '<fieldset class="chk-set"><legend>Link (video, basi, spartiti online…)</legend><div class="as-rows">' +
       f.link.map((l, i) => '<div class="as-row"><input name="lt" data-i="' + i + '" value="' + esc(l.t) + '" maxlength="100" placeholder="Descrizione (es. Video della lezione)" aria-label="Descrizione link ' + (i + 1) + '"><input name="lu" data-i="' + i + '" value="' + esc(l.u) + '" inputmode="url" autocapitalize="none" spellcheck="false" placeholder="https://…" aria-label="Indirizzo link ' + (i + 1) + '"><button type="button" class="mini" data-act="as-rm" data-k="link" data-i="' + i + '" aria-label="Togli il link ' + (i + 1) + '">✕</button></div>').join('') +
-      '</div><button type="button" class="btn ghost sm" data-act="as-add" data-k="link">+ Aggiungi link</button></fieldset>' +
+      '</div><button type="button" class="btn ghost sm" data-act="as-add" data-k="link">+ Aggiungi link</button></fieldset>' + chiHTML('a', f) +
       '<div class="row"><button class="btn" type="submit" ' + (ASS.save ? 'disabled' : '') + '>' + (ASS.save ? 'Salvo…' : (f.id ? 'Salva le modifiche' : 'Pubblica l\'assegno')) + '</button><button type="button" class="btn ghost" data-act="as-cancel">Annulla</button></div></form>';
   }
   function assegniHTML() {
@@ -2437,7 +2559,7 @@ const NOTA = (function () {
     if (!ASS.list.length) return h + '<p class="empty">' + (ASS.scrive ? 'Nessun assegno pubblicato per questo gruppo.' : 'Il docente non ha ancora pubblicato assegni per questo gruppo.') + '</p></section>';
     const max = ASS.aperti ? ASS.list.length : Math.min(ASS.list.length, 6);
     h += '<ul class="as-list">' + ASS.list.slice(0, max).map(a => {
-      let x = '<li class="as-it' + (a.fatto ? ' done' : '') + '"><h3>' + esc(a.titolo || 'Assegno') + '</h3><p class="as-meta">Lezione di ' + esc(dataIt(a.data)) + (a.autore ? ' · ' + esc(a.autore) : '') + '</p>';
+      let x = '<li class="as-it' + (a.fatto ? ' done' : '') + '"><h3>' + esc(a.titolo || 'Assegno') + (a.perTe ? ' <em class="chi-tag">Solo per te</em>' : '') + '</h3><p class="as-meta">Lezione di ' + esc(dataIt(a.data)) + (a.autore ? ' · ' + esc(a.autore) : '') + (ASS.scrive && a.destinatariNomi ? ' · ' + perChi(a.destinatariNomi) : '') + '</p>';
       if (a.voci.length) x += '<ul class="as-v">' + a.voci.map(v => '<li>' + esc(v) + '</li>').join('') + '</ul>';
       if (a.link.length) x += '<div class="as-links">' + a.link.map(l => '<a href="' + esc(l.u) + '" target="_blank" rel="noopener noreferrer">🔗 ' + esc(l.t || l.u) + '</a>').join('') + '</div>';
       x += '<div class="as-act">';
@@ -2458,12 +2580,49 @@ const NOTA = (function () {
     f.voci = $$('input[name="voce"]', form).map(i => i.value);
     const lt = $$('input[name="lt"]', form), lu = $$('input[name="lu"]', form);
     f.link = lu.map((u, i) => ({ t: lt[i] ? lt[i].value : '', u: u.value }));
+    leggiChi(form, 'a', f);
+  }
+  /* ---------- note del docente ---------- */
+  const nuovaNota = () => ({ id: '', testo: '', solo: false, dest: [] });
+  function notaFormHTML(f) {
+    return '<form class="u-edit" data-form="nota" autocomplete="off"><h3 class="area-title">' + (f.id ? 'Modifica nota' : 'Nuova nota') + '</h3>' +
+      fld('Testo della nota', '<textarea name="testo" rows="4" maxlength="2000" placeholder="Es. Ottimo lavoro oggi! Per la prossima volta ripassate le figure di valore." required>' + esc(f.testo) + '</textarea>') + chiHTML('n', f) +
+      '<div class="row"><button class="btn" type="submit" ' + (ASS.nsave ? 'disabled' : '') + '>' + (ASS.nsave ? 'Salvo…' : (f.id ? 'Salva le modifiche' : 'Invia la nota')) + '</button><button type="button" class="btn ghost" data-act="nt-cancel">Annulla</button></div></form>';
+  }
+  function leggiNotaForm(form) { const f = ASS.nform; if (!form || !f) return; f.testo = form.elements.testo.value; leggiChi(form, 'n', f); }
+  function noteHTML() {
+    if (!ASS || ASS.gid !== MAT.gid || !ASS.list) return '';
+    if (ASS.note === undefined) return ASS.scrive ? '<section class="card"><h2>Note agli allievi</h2><p class="note">Per scrivere note agli allievi serve il motore aggiornato (Codice.gs del 27 novembre).</p></section>' : '';
+    const N = ASS.note;
+    let h = '<section class="card"><h2>' + (ASS.scrive ? 'Note agli allievi' : 'Note dell\'insegnante') + '</h2>';
+    if (ASS.scrive) h += ASS.nform ? notaFormHTML(ASS.nform) : '<div class="row"><button type="button" class="btn" data-act="nt-new">+ Nuova nota</button></div>';
+    if (!N.length) return h + '<p class="empty">' + (ASS.scrive ? 'Nessuna nota inviata a questa classe.' : 'Per ora non ci sono note.') + '</p></section>';
+    const max = ASS.naperte ? N.length : Math.min(N.length, 6);
+    h += '<ul class="as-list">' + N.slice(0, max).map(n => {
+      let x = '<li class="as-it nt-it' + (n.letta ? ' done' : '') + '"><p class="as-meta">' + esc(fmtData(n.creato)) + (n.autore ? ' · ' + esc(n.autore) : '') + ' · ' + (ASS.scrive ? perChi(n.destinatariNomi) : (n.perTe ? '<span class="chi-tag">Per te</span>' : '<span class="chi-tag all">Per la classe</span>')) + '</p><p class="nt-t">' + esc(n.testo) + '</p><div class="as-act">';
+      if (!ASS.scrive) x += n.letta ? '<span class="as-meta">✓ Letta</span>' : '<button type="button" class="mini" data-act="nt-letta" data-id="' + esc(n.id) + '">Ho letto</button>';
+      else {
+        const k = (n.lettiNomi || []).length;
+        x += '<span class="as-meta">Letta da ' + k + ' di ' + n.iscritti + (k ? ': ' + esc(n.lettiNomi.join(', ')) : '') + '</span>';
+        if (n.mio) x += '<button type="button" class="mini" data-act="nt-edit" data-id="' + esc(n.id) + '">Modifica</button><button type="button" class="mini ' + (ASS.ndel === n.id ? 'bad' : '') + '" data-act="nt-del" data-id="' + esc(n.id) + '">' + (ASS.ndel === n.id ? 'Conferma: elimina' : 'Elimina') + '</button>';
+      }
+      return x + '</div></li>';
+    }).join('') + '</ul>';
+    if (N.length > max) h += '<div class="row"><button type="button" class="btn ghost sm" data-act="nt-more">Mostra tutte le note (' + N.length + ')</button></div>';
+    return h + '</section>';
   }
   const dim = n => n > 1048576 ? (n / 1048576).toFixed(1).replace('.', ',') + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
-  function materialiView() { const v = materialiBase(); return (MAT && MAT.gid && PORTAL && PORTAL.grp && PORTAL.grp.length) ? v + assegniHTML() : v; }
+  function materialiView() {
+    const v = materialiBase();
+    if (!(MAT && MAT.gid && PORTAL && PORTAL.grp && PORTAL.grp.length)) return v;
+    const gc = PORTAL.grp.filter(x => x.id === MAT.gid)[0], extra = assegniHTML() + noteHTML();
+    if (gc && gc.area === AREA_SOLF) { const i = v.indexOf('<section class="card">'); if (i >= 0) return v.slice(0, i) + extra + v.slice(i); } // nelle classi di solfeggio prima assegni e note, poi i file
+    return v + extra;
+  }
   function materialiBase() {
-    let h = pageHead('Domus Form Academy', 'Materiali', 'Spartiti, basi, documenti, registrazioni e assegni delle lezioni dei tuoi gruppi.') + waiting();
     const g = (PORTAL && PORTAL.grp) || [];
+    const gc = MAT && g.filter(x => x.id === MAT.gid)[0];
+    let h = (gc && gc.area === AREA_SOLF ? pageHead('Teoria e solfeggio', gc.nome, 'Assegni e note della classe, più la cartella con spartiti ed esercizi da scaricare.') : pageHead('Domus Form Academy', 'Materiali', 'Spartiti, basi, documenti, registrazioni e assegni delle lezioni dei tuoi gruppi.')) + waiting();
     if (!PORTAL || !PORTAL.grp) return h;
     if (!g.length) return h + '<p class="empty">Non hai ancora nessun gruppo abilitato. Scrivi alla segreteria.</p>';
     h += '<section class="card"><label class="fld sm"><span>Gruppo</span><select data-mat="gid">' + perArea(g).map(ar => '<optgroup label="' + esc(ar.area) + '">' + ar.items.map(x => '<option value="' + esc(x.id) + '" ' + (MAT && MAT.gid === x.id ? 'selected' : '') + '>' + esc(x.nome) + '</option>').join('') + '</optgroup>').join('') + '</select></label>';
@@ -2575,7 +2734,7 @@ const NOTA = (function () {
     if (isPortal()) {
       adm = adm || newAdm();
       const v = route.v;
-      main = v === 'p-allievi' ? allieviView() : v === 'p-corsi' ? corsiView() : v === 'p-recupero' ? recuperoView() : v === 'p-archivio' ? archivioView() : v === 'p-account' ? accountView() : v === 'p-elenco-doc' ? elencoDocentiView() : v === 'p-docenti' ? docentiView() : v === 'materiali' ? materialiView() : v === 'p-progressi' ? dpView() : portalHome();
+      main = v === 'p-allievi' ? allieviView() : v === 'p-corsi' ? corsiView() : v === 'p-recupero' ? recuperoView() : v === 'p-archivio' ? archivioView() : v === 'p-account' ? accountView() : v === 'p-elenco-doc' ? elencoDocentiView() : v === 'p-docenti' ? docentiView() : v === 'materiali' ? materialiView() : v === 'p-progressi' ? dpView() : v === 'p-solfeggio' ? solfView() : portalHome();
       side = portalNav();
     } else {
       if (!DATA) { app.innerHTML = '<div class="loading">Domus Form Academy</div>'; return; }
@@ -2695,11 +2854,35 @@ const NOTA = (function () {
       case 'mat-go': go('materiali'); MAT = MAT || {}; MAT.gid = el.dataset.id; return;
       case 'mat-dl': dlMat(el.dataset.id); return;
       case 'as-new': ASS.form = nuovoAss(); ASS.del = null; render(); return;
+      case 'cl-open': MAT = MAT || { gid: '', cart: null, busy: false, err: '', msg: '', del: null }; if (MAT.gid !== el.dataset.id) { MAT.gid = el.dataset.id; MAT.cart = null; ASS = null; } go('materiali'); return;
+      case 'solf-edit': adm.solfEdit = adm.solfEdit === el.dataset.id ? null : el.dataset.id; adm.solfMsg = ''; render(); return;
+      case 'nt-new': ASS.nform = nuovaNota(); ASS.ndel = null; render(); { const t = $('[data-form="nota"] textarea'); if (t) t.focus(); } return;
+      case 'nt-cancel': ASS.nform = null; render(); return;
+      case 'nt-more': ASS.naperte = 1; render(); return;
+      case 'nt-edit': { const n = (ASS.note || []).filter(x => x.id === el.dataset.id)[0]; if (!n) return; ASS.nform = { id: n.id, testo: n.testo, solo: !!(n.destinatari && n.destinatari.length), dest: (n.destinatari || []).slice() }; render(); const fm = $('[data-form="nota"]'); if (fm) fm.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+      case 'nt-del': {
+        const id = el.dataset.id;
+        if (ASS.ndel !== id) { ASS.ndel = id; render(); return; }
+        tcall('eliminaNota', ASS.gid, id).then(() => { toast('Nota eliminata.'); loadAss(); }).catch(e => { ASS.ndel = null; toast(e.message); render(); });
+        return;
+      }
+      case 'cp-letta': {
+        const g = COMP && COMP.gruppi.filter(x => x.id === el.dataset.g)[0], n = g && g.note.filter(x => x.id === el.dataset.id)[0]; if (!n) return;
+        n.letta = true; render();
+        tcall('segnaNota', g.id, n.id, true).then(() => { try { localStorage.setItem(cpKey(), JSON.stringify({ gruppi: COMP.gruppi, at: COMP.at })); } catch (e) { } }).catch(e => { n.letta = false; toast(e.message); render(); });
+        return;
+      }
+      case 'nt-letta': {
+        const id = el.dataset.id, n = (ASS.note || []).filter(x => x.id === id)[0]; if (!n) return;
+        n.letta = true; render();
+        tcall('segnaNota', ASS.gid, id, true).catch(e => { n.letta = false; toast(e.message); render(); });
+        return;
+      }
       case 'as-cancel': ASS.form = null; render(); return;
       case 'as-more': ASS.aperti = 1; render(); return;
       case 'as-add': { leggiAssForm(el.closest('form')); const k = el.dataset.k; if (k === 'voci' && ASS.form.voci.length < 20) ASS.form.voci.push(''); if (k === 'link' && ASS.form.link.length < 10) ASS.form.link.push({ t: '', u: '' }); render(); const ins = $$('input[name="' + (k === 'voci' ? 'voce' : 'lt') + '"]'); if (ins.length) ins[ins.length - 1].focus(); return; }
       case 'as-rm': { leggiAssForm(el.closest('form')); ASS.form[el.dataset.k].splice(+el.dataset.i, 1); render(); return; }
-      case 'as-edit': { const a = ASS.list.filter(x => x.id === el.dataset.id)[0]; if (!a) return; ASS.form = { id: a.id, data: a.data, titolo: a.titolo, voci: a.voci.length ? a.voci.slice() : [''], link: a.link.length ? a.link.map(l => ({ t: l.t, u: l.u })) : [{ t: '', u: '' }] }; render(); const fm = $('[data-form="assegno"]'); if (fm) fm.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+      case 'as-edit': { const a = ASS.list.filter(x => x.id === el.dataset.id)[0]; if (!a) return; ASS.form = { id: a.id, data: a.data, titolo: a.titolo, voci: a.voci.length ? a.voci.slice() : [''], link: a.link.length ? a.link.map(l => ({ t: l.t, u: l.u })) : [{ t: '', u: '' }], solo: !!(a.destinatari && a.destinatari.length), dest: (a.destinatari || []).slice() }; render(); const fm = $('[data-form="assegno"]'); if (fm) fm.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
       case 'as-del': {
         const id = el.dataset.id;
         if (ASS.del !== id) { ASS.del = id; render(); return; }
@@ -2756,9 +2939,17 @@ const NOTA = (function () {
       if (a) a.fatto = v;
       tcall('segnaAssegno', ASS.gid, id, v).then(() => { render(); if (v) toast('Segnato come fatto.'); }).catch(e => { if (a) a.fatto = !v; el.checked = !v; toast(e.message); });
     }
+    else if (el.dataset.act === 'cp-fatto') {
+      const g = COMP && COMP.gruppi.filter(x => x.id === el.dataset.g)[0], a = g && g.assegni.filter(x => x.id === el.dataset.id)[0], v = el.checked;
+      if (!a) return;
+      a.fatto = v; render(); if (v) toast('Bravo! Segnato come fatto.');
+      tcall('segnaAssegno', g.id, a.id, v).then(() => { try { localStorage.setItem(cpKey(), JSON.stringify({ gruppi: COMP.gruppi, at: COMP.at })); } catch (e) { } }).catch(e => { a.fatto = !v; toast(e.message); render(); });
+    }
     else if (el.dataset.act === 'mat-up') upMat(el);
     else if (el.dataset.adm) { adm[el.dataset.adm] = el.value; render(); }
     else if (el.dataset.dpf && el.dataset.dpf !== 'q') { DPF[el.dataset.dpf] = el.value; render(); }
+    else if (el.name === 'achi' && ASS && ASS.form) { leggiAssForm(el.form); render(); }
+    else if (el.name === 'nchi' && ASS && ASS.nform) { leggiNotaForm(el.form); render(); }
     else if (el.dataset.pg) { pg[el.dataset.pg] = el.value; render(); }
     else if (el.form && el.form.dataset.form === 'nuova' && (el.name === 'ruolo' || el.name === 'indiv')) { readNew(el.form); render(); }
   });
@@ -2777,6 +2968,7 @@ const NOTA = (function () {
       if (ch && bar && route.v === 'cap') { const tab = route.tab === 'casa' ? 'casa' : 'aula', b = DPE() ? curBlk(ch, tab) : null; const tmp = document.createElement('div'); tmp.innerHTML = testBar(ch, tab, b); if (tmp.firstChild) bar.replaceWith(tmp.firstChild); }
     }
     else if (el.dataset.ed && el.tagName !== 'SELECT' && el.type !== 'number') onEdit(el);
+    else if (el.hasAttribute && el.hasAttribute('data-solf-q')) { const q = el.value.trim().toLowerCase(); $$('.solf-al label.chk', el.form).forEach(l => { l.style.display = q && !l.dataset.n.includes(q) ? 'none' : ''; }); }
     else if (el.dataset.dpf === 'q') { DPF.q = el.value; const pos = el.selectionStart; render(); const n = $('[data-dpf="q"]'); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) { } } }
     else if (el.dataset.adm === 'q') { adm.q = el.value; const pos = el.selectionStart; render(); const n = $('[data-adm="q"]'); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) { } } }
     else if (el.form && el.form.dataset.form === 'nuova') {
@@ -2844,11 +3036,32 @@ const NOTA = (function () {
       adm.gMsg = '';
       tcall('salvaGruppo', form.dataset.id, form.dataset.nome, fe.link.value, null).then(() => refreshSeg()).then(() => { adm.gBad = false; adm.gMsg = 'Cartella collegata.'; })
         .catch(e => { adm.gBad = true; adm.gMsg = e.message; }).then(render);
+    } else if (kind === 'solf-new') {
+      if (adm.solfBusy) return;
+      const nome = fe.nome.value.trim(); if (!nome) return;
+      adm.solfBusy = true; adm.solfMsg = ''; render();
+      tcall('salvaGruppo', '', nome, '', AREA_SOLF).then(() => refreshSeg()).then(() => { const g = (adm.grp || []).filter(x => x.area === AREA_SOLF && x.nome === nome)[0]; adm.solfBad = false; adm.solfMsg = 'Classe «' + nome + '» creata: ora scegli allievi e docenti.'; adm.solfEdit = g ? g.id : null; })
+        .catch(e => { adm.solfBad = true; adm.solfMsg = e.message; }).then(() => { adm.solfBusy = false; render(); });
+    } else if (kind === 'solf-membri') {
+      if (adm.solfBusy) return;
+      const ids = readChecks(form, 'membri');
+      adm.solfBusy = true; adm.solfMsg = ''; render();
+      tcall('salvaMembriGruppo', form.dataset.id, ids).then(r => refreshSeg().then(() => r)).then(r => { adm.solfBad = false; adm.solfEdit = null; adm.solfMsg = 'Classe aggiornata: ' + r.membri + (r.membri === 1 ? ' persona' : ' persone') + ' (' + r.entrati + ' aggiunte, ' + r.usciti + ' tolte).'; })
+        .catch(e => { adm.solfBad = true; adm.solfMsg = /Operazione non valida/.test(e.message) ? 'Serve il motore aggiornato (Codice.gs del 27 novembre).' : e.message; }).then(() => { adm.solfBusy = false; render(); window.scrollTo({ top: 0 }); });
+    } else if (kind === 'nota') {
+      if (ASS.nsave) return;
+      leggiNotaForm(form);
+      const f = ASS.nform;
+      if (f.solo && !f.dest.length) { ASS.err = 'Scegli almeno un allievo, oppure «Tutta la classe».'; render(); return; }
+      ASS.nsave = true; ASS.err = ''; render();
+      tcall('salvaNota', ASS.gid, { id: f.id, testo: f.testo.trim(), destinatari: f.solo ? f.dest : [] }).then(() => { ASS.nform = null; ASS.nsave = false; toast(f.id ? 'Nota aggiornata.' : 'Nota inviata.'); loadAss(); })
+        .catch(e => { ASS.nsave = false; ASS.err = e.message; render(); });
     } else if (kind === 'assegno') {
       if (ASS.save) return;
       leggiAssForm(form);
       const f = ASS.form;
-      const dati = { id: f.id, data: f.data, titolo: f.titolo.trim(), voci: f.voci.map(v => v.trim()).filter(Boolean), link: f.link.filter(l => l.u.trim() || l.t.trim()).map(l => ({ t: l.t.trim(), u: /^https?:\/\//i.test(l.u.trim()) || !l.u.trim() ? l.u.trim() : 'https://' + l.u.trim() })) };
+      if (f.solo && !f.dest.length) { ASS.err = 'Scegli almeno un allievo, oppure «Tutta la classe».'; render(); return; }
+      const dati = { id: f.id, data: f.data, titolo: f.titolo.trim(), voci: f.voci.map(v => v.trim()).filter(Boolean), link: f.link.filter(l => l.u.trim() || l.t.trim()).map(l => ({ t: l.t.trim(), u: /^https?:\/\//i.test(l.u.trim()) || !l.u.trim() ? l.u.trim() : 'https://' + l.u.trim() })), destinatari: f.solo ? f.dest : [] };
       ASS.save = true; ASS.err = ''; render();
       tcall('salvaAssegno', ASS.gid, dati).then(() => { ASS.form = null; ASS.save = false; toast(f.id ? 'Assegno aggiornato.' : 'Assegno pubblicato: gli allievi del gruppo lo vedono subito.'); loadAss(); })
         .catch(e => { ASS.save = false; ASS.err = e.message; render(); });
