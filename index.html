@@ -208,6 +208,7 @@ tbody tr:last-child > * { border-bottom: 0; }
 .ts-res.mid { border-color: var(--accent); background: var(--surface); }
 .ts-res h3 { margin: 0 0 4px; font-size: 1.15rem; }
 .ts-res p { margin: 0 0 8px; }
+.ts-acts { display: flex; flex-wrap: wrap; gap: 10px; margin: 4px 0 8px; }
 .fb { min-height: 1.6em; margin: 10px 0 0; font-size: 15px; }
 .fb.ok { color: var(--ok); }
 .fb.no { color: var(--bad); font-weight: 700; }
@@ -1441,14 +1442,14 @@ const NOTA = (function () {
       else if (r && r.s === 'no') { fc = 'no'; fb = r.why ? 'Sbagliata.<span class="why">' + esc(r.why) + '</span>' : 'Sbagliata. Rileggi la domanda e la teoria.'; }
       else if (r && r.s === 'none') { fc = 'none'; fb = 'Senza risposta.'; }
       else if (busy[k]) { fb = 'Correzione in corso…'; }
-      else if (isAll() && isDone(ch, tab, i)) { fb = '<small>Già risolta in un test precedente.</small>'; }
+      else if (isAll() && isDone(ch, tab, i) && !testRes[testKey(ch, tab, i)]) { fb = '<small>Già risolta in un test precedente.</small>'; }
       h += '<p class="fb ' + fc + '" aria-live="polite">' + fb + '</p>';
     } else {
       const r = subito() ? null : res[k];
       h += '<textarea class="ans" data-act="note" data-k="' + esc(k) + '" rows="3" placeholder="Scrivi qui la tua risposta" aria-label="La tua risposta all\'esercizio ' + (i + 1) + '"' + (r ? ' readonly' : '') + '>' + esc(notes[k] || '') + '</textarea>';
       if (r) h += '<p class="fb ' + (r.s === 'none' ? 'none' : 'ok') + '">' + (r.s === 'none' ? 'Senza risposta.' : '<strong>Consegnata.</strong> La correggerà l\'insegnante.') + '</p>';
       else if (busy[k]) h += '<p class="fb">Correzione in corso…</p>';
-      else if (isAll() && isDone(ch, tab, i)) h += '<p class="fb"><small>Già consegnata in un test precedente.</small></p>';
+      else if (isAll() && isDone(ch, tab, i) && !testRes[testKey(ch, tab, i)]) h += '<p class="fb"><small>Già consegnata in un test precedente.</small></p>';
     }
     if (showT()) h += '<details class="sol"><summary>Soluzione per il docente</summary><div>' + md(e.sol || '') + '</div></details>';
     return h + '</div></article>';
@@ -1491,7 +1492,10 @@ const NOTA = (function () {
     const voto = st.nScelta ? 'Giuste: <strong>' + st.giuste + ' su ' + st.nScelta + '</strong> (' + Math.round(st.giuste / st.nScelta * 100) + '%)' : '';
     const prima = tr.primo != null && tr.primo !== st.giuste && st.nScelta ? ' · alla prima consegna: ' + tr.primo + ' su ' + st.nScelta : '';
     return '<div class="ts-res' + (sb ? ' mid' : '') + '" role="status"><h3>' + (sb ? 'Risultati del test' : (st.nScelta ? 'Tutte giuste. Bravo!' : 'Test consegnato')) + '</h3><p>' + voto + prima + (st.consegnate ? (voto ? ' · ' : '') + 'Risposte aperte consegnate: ' + st.consegnate : '') + '</p>' +
-      (sb ? '<p>Sotto ogni domanda sbagliata trovi il perché. Rileggi e poi riprova solo quelle.</p><button type="button" class="btn" data-act="ts-retry" data-t="' + tab + '" data-b="' + bb + '">Riprova le domande sbagliate (' + sb + ')</button>' : '') + '</div>';
+      (sb ? '<p>Sotto ogni domanda sbagliata trovi il perché. Rileggi e poi riprova solo quelle, oppure rifai tutto il test da capo.</p>' : '<p>Puoi rifare il test da capo quando vuoi per esercitarti.</p>') +
+      '<div class="ts-acts">' + (sb ? '<button type="button" class="btn" data-act="ts-retry" data-t="' + tab + '" data-b="' + bb + '">Riprova le domande sbagliate (' + sb + ')</button>' : '') +
+      '<button type="button" class="btn' + (sb ? ' ghost' : '') + '" data-act="ts-redo" data-t="' + tab + '" data-b="' + bb + '">Rifai il test da capo</button></div>' +
+      (tr.giri > 1 ? '<p><small>Volte che hai fatto questo test: ' + tr.giri + '</small></p>' : '') + '</div>';
   }
   function confermaTest(tab, b) {
     const ch = DATA.capitoli[route.i]; if (!ch) return;
@@ -1501,7 +1505,7 @@ const NOTA = (function () {
     const da = [];
     for (let i = rg[0]; i < rg[1]; i++) { const k = exKey(ch, tab, i); if (!res[k]) da.push(i); }
     if (!da.length) return;
-    const primaVolta = !testRes[tk];
+    const primaVolta = !testRes[tk], completo = da.length === rg[1] - rg[0];
     const applica = esiti => {
       const byI = {}; esiti.forEach(x => { byI[x.i] = x; });
       da.forEach(i => {
@@ -1518,7 +1522,8 @@ const NOTA = (function () {
         }
       });
       const s2 = testStato(ch, tab, b);
-      testRes[tk] = Object.assign({}, testRes[tk] || {}, primaVolta ? { primo: s2.giuste } : {});
+      const prev = testRes[tk] || {};
+      testRes[tk] = Object.assign({}, prev, primaVolta ? { primo: s2.giuste } : {}, { giri: (prev.giri || 0) + (completo || primaVolta ? 1 : 0) });
       if (primaVolta && isAll()) salvaTestDrive(ch, tab, b);
     };
     const risposte = da.map(i => { const e = ch[tab][i], k = exKey(ch, tab, i); return e.tipo === 'scelta' ? { i: i, j: sel[k] != null ? sel[k] : -1 } : { i: i, testo: notes[k] || '' }; });
@@ -1532,6 +1537,13 @@ const NOTA = (function () {
       .then(() => { if (SESS && route.v === 'cap') { render(); scrollRisultato(); } });
   }
   function scrollRisultato() { const n = $('.ts-res'); if (n) n.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+  function rifaiTest(tab, b) { // ricomincia tutto il test: risposte azzerate, si mantiene il risultato della prima consegna
+    const ch = DATA.capitoli[route.i]; if (!ch) return;
+    const rg = testRange(ch, tab, b), tk = tKey(ch, tab, b);
+    for (let i = rg[0]; i < rg[1]; i++) { const k = exKey(ch, tab, i); delete res[k]; delete sel[k]; delete expl[k]; delete busy[k]; delete notes[k]; }
+    delete testArm[tk]; saveNotes(); render();
+    const n = $('[data-k="' + exKey(ch, tab, rg[0]) + '"]'); if (n) n.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
   function riprovaTest(tab, b) {
     const ch = DATA.capitoli[route.i]; if (!ch) return;
     const rg = testRange(ch, tab, b);
@@ -1721,7 +1733,7 @@ const NOTA = (function () {
       h += '</ol></section>';
     });
     h += '</div>';
-    h += '<section class="howto"><h2>Come si usa</h2><ol><li><strong>Studia</strong><span>Leggi i paragrafi del capitolo. I pentagrammi mostrano ogni esempio.</span></li><li><strong>In aula</strong><span>Gli esercizi da svolgere con l\'insegnante, uno alla volta.</span></li><li><strong>A casa</strong><span>Gli esercizi per ripassare da soli. Le risposte a scelta ti dicono subito se hai ragione.</span></li><li><strong>Stampa</strong><span>Ogni capitolo ha due schede pronte da stampare.</span></li></ol></section>';
+    h += '<section class="howto"><h2>Come si usa</h2><ol><li><strong>Studia</strong><span>Leggi i paragrafi del capitolo. I pentagrammi mostrano ogni esempio.</span></li><li><strong>In aula</strong><span>Gli esercizi da svolgere con l\'insegnante, uno alla volta.</span></li><li><strong>A casa</strong><span>Gli esercizi per ripassare da soli. Rispondi a tutte le domande e premi «Conferma» per vedere i risultati; puoi rifare il test quante volte vuoi.</span></li><li><strong>Stampa</strong><span>Ogni capitolo ha due schede pronte da stampare.</span></li></ol></section>';
     return h;
   }
 
@@ -2424,6 +2436,7 @@ const NOTA = (function () {
         break;
       }
       case 'ts-conf': confermaTest(el.dataset.t, el.dataset.b === '' ? null : +el.dataset.b); break;
+      case 'ts-redo': rifaiTest(el.dataset.t, el.dataset.b === '' ? null : +el.dataset.b); break;
       case 'ts-retry': riprovaTest(el.dataset.t, el.dataset.b === '' ? null : +el.dataset.b); break;
       case 'sch': { const i = +el.dataset.i; if (ch.schede && ch.schede[i]) openHtml(schedaDoc(ch, i, !!el.dataset.sol), 'DomusForm-Kids-Cap' + (route.i + 1) + '-Scheda' + (i + 1) + (el.dataset.sol ? '-Soluzioni' : '') + '.html'); break; }
       case 'dl': openSheet(ch, el.dataset.t, !!el.dataset.sol, el.dataset.b != null ? +el.dataset.b : null); break;
