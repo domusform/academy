@@ -454,7 +454,7 @@ a.mini { display: inline-flex; align-items: center; text-decoration: none; }
 .cp-nota { background: #fffbea; border: 1px solid #f3e3a1; border-radius: 10px; padding: 8px 10px; }
 .cp-chk { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; }
 .cp-chk input { width: 22px; height: 22px; margin-top: 2px; flex: none; }
-.cp-chk span { display: grid; } .cp-chk small { color: var(--muted); font-size: 12px; }
+.cp-chk span { display: grid; } .cp-chk .chi-tag { justify-self: start; } .cp-chk small { color: var(--muted); font-size: 12px; }
 .cp-it ul.as-v { margin: 4px 0 2px 32px; padding-left: 1.1em; }
 .cp-it .as-links { margin-left: 32px; }
 .cp-old summary { cursor: pointer; font-size: 13px; font-weight: 700; color: var(--muted); }
@@ -1056,7 +1056,7 @@ const NOTA = (function () {
     });
   }
   function expire(msg) {
-    pulisciCache(SESS && SESS.user); DPG = null; COMP = null;
+    pulisciCache(SESS && SESS.user); DPG = null; COMP = null; PRE_P = null; PRE_C = null;
     SESS = null; DATA = null; SEZ = null; PROG = {}; tries = {}; savedT = {}; adm = null; pg = null; PORTAL = null; MAT = null; editing = false; dirty = false; route = { v: 'portal', i: 0, tab: 'teoria' };
     login.msg = msg || 'La sessione è scaduta. Accedi di nuovo.'; login.busy = false;
     render();
@@ -2082,6 +2082,8 @@ const NOTA = (function () {
 
   function newAdm() { return { users: null, grp: null, set: null, err: '', busy: false, q: '', ruolo: '', f: { nome: '', utente: '', telefono: '', ruolo: 'allievo', sezioni: [], gruppi: [], indiv: false, strumento: '', indDoc: [] }, uTouched: false, formErr: '', formBusy: false, cred: null, editId: null, confirm: null, setMsg: '', setMsgBad: false, gEdit: null, gMsg: '', gBad: false, aperte: {} }; }
   let LOADSEQ = 0;
+  let PRE_P = null, PRE_C = null; // dati della pagina iniziale arrivati insieme al login (niente seconda attesa)
+  const preLogin = r => { PRE_P = r && r.portale || null; PRE_C = r && r.compiti || null; };
   function loadPortal() {
     PORTAL = PORTAL || { secs: null, grp: null, dash: null };
     adm = adm || newAdm();
@@ -2095,7 +2097,8 @@ const NOTA = (function () {
       if (isSeg()) j.push(tcall('cruscottoSegreteria').then(cur(r => { PORTAL.dash = r; })), tcall('elencoUtenze').then(cur(r => { adm.users = r; })), tcall('leggiModelloMessaggio').then(cur(r => { adm.set = r; })), tcall('gestioneGruppi').then(cur(r => { adm.grp = r; })));
       return Promise.all(j);
     };
-    const jobs = [tcall('caricaPortale').then(cur(r => {
+    const pp = PRE_P; PRE_P = null;
+    const jobs = [(pp ? Promise.resolve(pp) : tcall('caricaPortale')).then(cur(r => {
       PORTAL.secs = r.sezioni; PORTAL.grp = r.gruppi;
       if (r.dash) { PORTAL.dash = r.dash; adm.users = r.utenti; adm.set = r.modello; adm.grp = r.gestione; }
       pcPut();
@@ -2169,6 +2172,7 @@ const NOTA = (function () {
     if (!isAll()) return;
     if (!COMP) { try { const c = JSON.parse(localStorage.getItem(cpKey()) || 'null'); if (c && c.gruppi) COMP = { gruppi: c.gruppi, at: c.at, busy: false, off: false }; } catch (e) { } }
     COMP = COMP || { gruppi: null, at: 0, busy: false, off: false };
+    if (PRE_C) { COMP.gruppi = PRE_C.gruppi || []; COMP.at = Date.now(); COMP.off = false; PRE_C = null; try { localStorage.setItem(cpKey(), JSON.stringify({ gruppi: COMP.gruppi, at: COMP.at })); } catch (e) { } return; }
     if (COMP.busy) return;
     COMP.busy = true;
     const uid = SESS.user.id;
@@ -2990,7 +2994,7 @@ const NOTA = (function () {
       const utente = fe.utente.value.trim(), password = fe.password.value;
       login.utente = utente; login.msg = ''; login.busy = true; render();
       api('login', utente, password).then(r => {
-        SESS = { token: r.token, user: r.utente }; lastPwd = password;
+        SESS = { token: r.token, user: r.utente }; lastPwd = password; preLogin(r);
         salvaSess();
         login.busy = false; login.msg = '';
         if (SESS.user.cambio) { pw = { msg: '', busy: false }; render(); } else startCourse();
@@ -3124,7 +3128,7 @@ const NOTA = (function () {
       login.utente = acc.u; login.busy = true;
       app.innerHTML = '<div class="loading">Domus Form Academy</div>';
       api('login', acc.u, acc.p).then(r => {
-        SESS = { token: r.token, user: r.utente }; lastPwd = acc.p;
+        SESS = { token: r.token, user: r.utente }; lastPwd = acc.p; preLogin(r);
         salvaSess();
         login.busy = false; login.msg = '';
         if (SESS.user.cambio) { pw = { msg: '', busy: false }; render(); } else startCourse();
