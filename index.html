@@ -2416,7 +2416,7 @@ const NOTA = (function () {
     if (!g.length) return '';
     let h = '<section class="card cp" id="compiti-doc"><div class="dp-h"><h2>Compiti assegnati</h2>' + (DC && DC.busy ? '<span class="cp-sum">Aggiorno…</span>' : '') + '</div>';
     if (!DC || (!Object.keys(DC.g).length && DC.busy)) return h + '<p class="empty">Carico gli assegni dei tuoi gruppi…</p></section>';
-    const ult = x => { const d = DC.g[x.id]; return d && d.assegni.length ? String(d.assegni[0].data || '') : ''; };
+    const ult = x => { const d = DC.g[x.id]; return d && d.assegni.length ? isoDi(d.assegni[0].data) : ''; };
     g.sort((a, b) => ult(b).localeCompare(ult(a)) || docOrd(a.area) - docOrd(b.area) || a.nome.localeCompare(b.nome, 'it'));
     const vuoti = [];
     h += g.map(x => {
@@ -2632,7 +2632,9 @@ const NOTA = (function () {
   /* ---------- assegni delle lezioni ---------- */
   let ASS = null;
   const oggiISO = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
-  const dataIt = iso => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); if (!m) return iso || ''; const d = new Date(+m[1], +m[2] - 1, +m[3]); return d.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }); };
+  /* la data della lezione può arrivare come 2026-11-26 oppure come data completa del foglio (es. «Thu Nov 26 2026 00:00:00 GMT+0100»): la riportiamo sempre ad AAAA-MM-GG */
+  const isoDi = v => { const t = String(v || ''); if (/^\d{4}-\d{2}-\d{2}$/.test(t)) return t; const d = new Date(t); if (!t || isNaN(d)) return t; return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+  const dataIt = v => { const iso = isoDi(v); const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); if (!m) return iso || ''; const d = new Date(+m[1], +m[2] - 1, +m[3]); return d.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }); };
   const nuovoAss = () => ({ id: '', data: oggiISO(), titolo: '', voci: ['', ''], link: [{ t: '', u: '' }], solo: false, dest: [] });
   /* «A chi»: tutta la classe oppure allievi scelti */
   function chiHTML(pre, f) {
@@ -2996,7 +2998,7 @@ const NOTA = (function () {
       case 'as-more': ASS.aperti = 1; render(); return;
       case 'as-add': { leggiAssForm(el.closest('form')); const k = el.dataset.k; if (k === 'voci' && ASS.form.voci.length < 20) ASS.form.voci.push(''); if (k === 'link' && ASS.form.link.length < 10) ASS.form.link.push({ t: '', u: '' }); render(); const ins = $$('input[name="' + (k === 'voci' ? 'voce' : 'lt') + '"]'); if (ins.length) ins[ins.length - 1].focus(); return; }
       case 'as-rm': { leggiAssForm(el.closest('form')); ASS.form[el.dataset.k].splice(+el.dataset.i, 1); render(); return; }
-      case 'as-edit': { const a = ASS.list.filter(x => x.id === el.dataset.id)[0]; if (!a) return; ASS.form = { id: a.id, data: a.data, titolo: a.titolo, voci: a.voci.length ? a.voci.slice() : [''], link: a.link.length ? a.link.map(l => ({ t: l.t, u: l.u })) : [{ t: '', u: '' }], solo: !!(a.destinatari && a.destinatari.length), dest: (a.destinatari || []).slice() }; render(); const fm = $('[data-form="assegno"]'); if (fm) fm.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+      case 'as-edit': { const a = ASS.list.filter(x => x.id === el.dataset.id)[0]; if (!a) return; ASS.form = { id: a.id, data: isoDi(a.data), titolo: a.titolo, voci: a.voci.length ? a.voci.slice() : [''], link: a.link.length ? a.link.map(l => ({ t: l.t, u: l.u })) : [{ t: '', u: '' }], solo: !!(a.destinatari && a.destinatari.length), dest: (a.destinatari || []).slice() }; render(); const fm = $('[data-form="assegno"]'); if (fm) fm.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
       case 'as-del': {
         const id = el.dataset.id;
         if (ASS.del !== id) { ASS.del = id; render(); return; }
