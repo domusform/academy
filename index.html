@@ -465,6 +465,25 @@ a.mini { display: inline-flex; align-items: center; text-decoration: none; }
 .cp-old summary { cursor: pointer; font-size: 13px; font-weight: 700; color: var(--muted); }
 .cp-ok { margin: 0; }
 .cp { gap: 12px; }
+.dg-n { font-size: .8em; color: var(--muted); font-weight: 600; }
+.dg-srch { display: block; margin: 4px 0 6px; } .dg-srch input { width: 100%; }
+.dg-t small { color: var(--muted); font-weight: 700; }
+.dg-grid { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
+.dg-btn { position: relative; display: grid; gap: 2px; text-align: left; border: 1px solid var(--line); border-left: 6px solid #8a94a6; border-radius: 10px; padding: 9px 12px; background: var(--surface); cursor: pointer; font: inherit; color: inherit; }
+.dg-btn[hidden], .dg-area[hidden] { display: none; }
+.dg-btn:hover, .dg-btn:focus-visible { border-color: var(--accent, #3b47d6); }
+.dg-btn span { font-size: 12.5px; color: var(--muted); }
+.dg-btn.da { background: #fff8ec; }
+.dg-da { justify-self: start; font-style: normal; font-size: 11px; font-weight: 800; color: #9a5300; background: #ffe7c2; border-radius: 6px; padding: 1px 6px; }
+.dc-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.dc-row { width: 100%; display: grid; grid-template-columns: 92px 1fr auto; gap: 10px; align-items: center; text-align: left; border: 1px solid var(--line); border-left: 6px solid #8a94a6; border-radius: 10px; padding: 8px 12px; background: var(--surface); cursor: pointer; font: inherit; color: inherit; }
+.dc-row:hover, .dc-row:focus-visible { border-color: var(--accent, #3b47d6); }
+.dc-row.cp-solf, .dg-area.cp-solf .dg-btn { border-left-color: #2f7d4f; } .dc-row.cp-str, .dg-area.cp-str .dg-btn { border-left-color: #3b47d6; } .dc-row.cp-band, .dg-area.cp-band .dg-btn { border-left-color: #b4561c; } .dc-row.cp-rec, .dg-area.cp-rec .dg-btn { border-left-color: #8a3fb0; }
+.dc-d { font-size: 13px; font-weight: 700; color: var(--muted); }
+.dc-m { display: grid; min-width: 0; } .dc-m small { color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dc-f { font-size: 13px; font-weight: 800; border-radius: 6px; padding: 2px 8px; background: var(--line); }
+.dc-f.ok { background: #dff3e6; color: #1d6b3c; }
+@media (max-width: 520px) { .dc-row { grid-template-columns: 1fr auto; } .dc-d { grid-column: 1 / -1; } }
 .dg-area { display: grid; gap: 8px; margin-top: 6px; }
 .dg-t { margin: 4px 0 0; font-size: 14px; }
 .dg-area .dg-btn { border-left: 6px solid #8a94a6; }
@@ -2370,6 +2389,7 @@ const NOTA = (function () {
   /* ---------- home del docente: gruppi (prima le band), assegni pubblicati, materiale didattico ---------- */
   const isDoc = () => !!SESS && SESS.user.ruolo === 'docente';
   let DC = null, PEND_NEW = null; const DET_OPEN = {};
+  document.addEventListener('input', e => { const t = e.target; if (!t || !t.matches || !t.matches('input[data-dgq]')) return; DGQ = t.value.trim(); const q = DGQ.toLowerCase(); let n = 0; $$('.dg-btn[data-n]').forEach(b => { const ok = !q || b.dataset.n.indexOf(q) >= 0; b.hidden = !ok; if (ok) n++; }); $$('.dg-area').forEach(ar => { ar.hidden = !$$('.dg-btn[data-n]', ar).some(b => !b.hidden); }); const z = $('#dg-none'); if (z) z.hidden = n > 0; }, true);
   document.addEventListener('toggle', e => { const d = e.target; if (d && d.dataset && d.dataset.det) DET_OPEN[d.dataset.det] = d.open; }, true);
   const dcKey = () => 'dfa-dc-' + (SESS && SESS.user ? SESS.user.id : '');
   const DOC_ORD = ['Band', 'Teoria e solfeggio', 'Corsi individuali', 'Recitazione'];
@@ -2396,47 +2416,47 @@ const NOTA = (function () {
       if (isPortal() && route.v === 'portal') render();
     });
   }
+  const dataBreve = v => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDi(v)); if (!m) return String(v || ''); return new Date(+m[1], +m[2] - 1, +m[3]).toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'short' }); };
+  const giorniDa = v => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDi(v)); if (!m) return 999; const o = new Date(); o.setHours(0, 0, 0, 0); return Math.round((o - new Date(+m[1], +m[2] - 1, +m[3])) / 86400000); };
+  let DGQ = '', DCMAX = 8;
+  const daAssegnare = d => !!(d && d.scrive && (!d.assegni.length || giorniDa(d.assegni[0].data) > 7));
   function docGruppiCard() {
     const g = ((PORTAL && PORTAL.grp) || []).slice().sort((a, b) => docOrd(a.area) - docOrd(b.area) || a.nome.localeCompare(b.nome, 'it'));
     if (!g.length) return '<section class="card"><h2>I tuoi gruppi</h2><p class="empty">Non hai ancora nessun gruppo assegnato. Scrivi alla segreteria.</p></section>';
     const aree = [];
     g.forEach(x => { const a = x.area || AREA_VUOTA; let o = aree.filter(y => y.a === a)[0]; if (!o) { o = { a: a, items: [] }; aree.push(o); } o.items.push(x); });
-    return '<section class="card"><h2>I tuoi gruppi</h2><p class="note">Apri un gruppo per pubblicare assegni e note e per caricare o scaricare i materiali.</p>' + aree.map(o => {
+    const nDa = DC ? g.filter(x => daAssegnare(DC.g[x.id])).length : 0;
+    let h = '<section class="card"><div class="dp-h"><h2>I tuoi gruppi <small class="dg-n">(' + g.length + ')</small></h2>' + (nDa ? '<span class="cp-sum"><b>' + nDa + '</b> senza assegno da più di una settimana</span>' : '') + '</div>';
+    if (g.length > 8) h += '<label class="srch dg-srch"><span class="sr">Cerca un gruppo o un allievo</span><input type="search" data-dgq placeholder="Cerca un gruppo o un allievo…" value="' + esc(DGQ) + '" autocomplete="off"></label>';
+    h += aree.map(o => {
       const cat = catCorso(o.a === AREA_VUOTA ? '' : o.a);
-      const tit = o.a === 'Band' ? 'Band' : o.a === AREA_SOLF ? 'Classi di Teoria e solfeggio' : o.a === 'Corsi individuali' ? 'Corsi individuali' : o.a;
-      return '<div class="dg-area cp-' + cat.c + '"><h3 class="dg-t"><span class="cp-cat">' + esc(tit) + '</span></h3><div class="cl-grid">' + o.items.map(x => {
-        const d = DC && DC.g[x.id];
-        const info = d ? (d.nAss ? d.nAss + (d.nAss === 1 ? ' assegno' : ' assegni') : 'Nessun assegno') + (d.nNote ? ' · ' + d.nNote + (d.nNote === 1 ? ' nota' : ' note') : '') : 'Assegni, note e materiali';
-        return '<button type="button" class="cl-btn dg-btn" data-act="cl-open" data-id="' + esc(x.id) + '"><strong>' + esc(x.nome) + '</strong><span>' + esc(info) + '</span></button>';
+      const tit = o.a === AREA_SOLF ? 'Classi di Teoria e solfeggio' : o.a;
+      return '<div class="dg-area cp-' + cat.c + '"><h3 class="dg-t"><span class="cp-cat">' + esc(tit) + '</span> <small>' + o.items.length + '</small></h3><div class="dg-grid">' + o.items.map(x => {
+        const d = DC && DC.g[x.id], ult = d && d.assegni[0];
+        const riga = !d ? 'Assegni, note e materiali' : ult ? 'Ultimo: ' + dataBreve(ult.data) + ' · fatto ' + (ult.fattiNomi || []).length + (ult.iscritti ? '/' + ult.iscritti : '') : 'Nessun assegno';
+        const da = daAssegnare(d);
+        const nasc = DGQ && x.nome.toLowerCase().indexOf(DGQ.toLowerCase()) < 0;
+        return '<button type="button" class="dg-btn' + (da ? ' da' : '') + '" data-act="cl-open" data-id="' + esc(x.id) + '" data-n="' + esc(x.nome.toLowerCase()) + '"' + (nasc ? ' hidden' : '') + '><strong>' + esc(x.nome) + '</strong><span>' + esc(riga) + (d && d.nNote ? ' · ' + d.nNote + ' note' : '') + '</span>' + (da ? '<em class="dg-da">Da assegnare</em>' : '') + '</button>';
       }).join('') + '</div></div>';
-    }).join('') + '</section>';
+    }).join('');
+    return h + '<p class="empty" id="dg-none" hidden>Nessun gruppo trovato.</p></section>';
   }
   function docCompitiCard() {
-    const g = ((PORTAL && PORTAL.grp) || []).slice();
+    const g = (PORTAL && PORTAL.grp) || [];
     if (!g.length) return '';
-    let h = '<section class="card cp" id="compiti-doc"><div class="dp-h"><h2>Compiti assegnati</h2>' + (DC && DC.busy ? '<span class="cp-sum">Aggiorno…</span>' : '') + '</div>';
+    let h = '<section class="card" id="compiti-doc"><div class="dp-h"><h2>Ultimi assegni pubblicati</h2>' + (DC && DC.busy ? '<span class="cp-sum">Aggiorno…</span>' : '') + '</div>';
     if (!DC || (!Object.keys(DC.g).length && DC.busy)) return h + '<p class="empty">Carico gli assegni dei tuoi gruppi…</p></section>';
-    const ult = x => { const d = DC.g[x.id]; return d && d.assegni.length ? isoDi(d.assegni[0].data) : ''; };
-    g.sort((a, b) => ult(b).localeCompare(ult(a)) || docOrd(a.area) - docOrd(b.area) || a.nome.localeCompare(b.nome, 'it'));
-    const vuoti = [];
-    h += g.map(x => {
-      const d = DC.g[x.id];
-      if (!d) return '';
-      if (!d.assegni.length && !d.note.length) { if (d.scrive) vuoti.push(x); return ''; }
-      const cat = catCorso(x.area);
-      let s = '<article class="cp-g cp-' + cat.c + '"><header class="cp-h"><span class="cp-cat">' + esc(cat.t) + '</span><strong>' + esc(x.nome) + '</strong><button type="button" class="mini" data-act="cl-open" data-id="' + esc(x.id) + '">Apri il gruppo</button>' + (d.scrive ? '<button type="button" class="mini" data-act="dc-new" data-id="' + esc(x.id) + '">+ Nuovo assegno</button>' : '') + '</header>';
-      d.assegni.slice(0, 3).forEach(a => {
-        const n = (a.fattiNomi || []).length;
-        s += '<div class="cp-it"><p class="dc-a"><strong>' + esc(a.titolo || 'Assegno') + '</strong> <small>· Lezione di ' + esc(dataIt(a.data)) + '</small>' + (a.destinatariNomi && a.destinatariNomi.length ? ' ' + perChi(a.destinatariNomi) : '') + '</p>' +
-          (a.voci && a.voci.length ? '<ul class="as-v dc-v">' + a.voci.slice(0, 4).map(v => '<li>' + esc(v) + '</li>').join('') + (a.voci.length > 4 ? '<li>…</li>' : '') + '</ul>' : '') +
-          '<p class="as-meta">✓ Fatto da ' + n + (a.iscritti ? ' di ' + a.iscritti : '') + (n ? ': ' + esc(a.fattiNomi.join(', ')) : '') + '</p></div>';
-      });
-      if (d.nAss > 3) s += '<p class="note dc-more">Altri ' + (d.nAss - 3) + ' assegni nel gruppo.</p>';
-      if (d.note.length) { const nt = d.note[0], k = (nt.lettiNomi || []).length; s += '<div class="cp-it"><p class="as-meta">📝 Ultima nota · ' + esc(fmtData(nt.creato)) + ' · letta da ' + k + (nt.iscritti ? ' di ' + nt.iscritti : '') + '</p><p class="nt-t">' + esc(String(nt.testo || '').slice(0, 160)) + (String(nt.testo || '').length > 160 ? '…' : '') + '</p></div>'; }
-      return s + '</article>';
-    }).join('');
-    if (vuoti.length) h += '<div class="dc-vuoti"><p class="note">Ancora nessun assegno in:</p><div class="row">' + vuoti.map(x => '<button type="button" class="btn ghost sm" data-act="dc-new" data-id="' + esc(x.id) + '">+ ' + esc(x.nome) + '</button>').join('') + '</div></div>';
-    if (!g.some(x => DC.g[x.id] && (DC.g[x.id].assegni.length || DC.g[x.id].note.length))) h += '<p class="note">Non hai ancora pubblicato assegni. Apri un gruppo o usa i pulsanti qui sopra.</p>';
+    const tutti = [];
+    g.forEach(x => { const d = DC.g[x.id]; if (d) d.assegni.forEach((a, i) => tutti.push({ a: a, g: x, k: isoDi(a.data), i: i })); });
+    if (!tutti.length) return h + '<p class="note">Non hai ancora pubblicato assegni. Apri un gruppo qui sopra e premi «+ Nuovo assegno».</p></section>';
+    tutti.sort((p, q) => q.k.localeCompare(p.k) || p.i - q.i || p.g.nome.localeCompare(q.g.nome, 'it'));
+    const sett = tutti.filter(t => giorniDa(t.a.data) <= 7).length;
+    h += '<p class="note">' + (sett ? sett + (sett === 1 ? ' assegno' : ' assegni') + ' negli ultimi 7 giorni.' : 'Nessun assegno negli ultimi 7 giorni.') + ' Per vedere tutto il dettaglio apri il gruppo.</p>';
+    h += '<ul class="dc-list">' + tutti.slice(0, DCMAX).map(t => {
+      const a = t.a, cat = catCorso(t.g.area), n = (a.fattiNomi || []).length, tot = a.iscritti || 0;
+      return '<li><button type="button" class="dc-row cp-' + cat.c + '" data-act="cl-open" data-id="' + esc(t.g.id) + '"><span class="dc-d">' + esc(dataBreve(a.data)) + '</span><span class="dc-m"><strong>' + esc(t.g.nome) + '</strong><small>' + esc(a.titolo || 'Assegno') + (a.destinatariNomi && a.destinatariNomi.length ? ' · solo per ' + esc(a.destinatariNomi.join(', ')) : '') + '</small></span><span class="dc-f' + (tot && n >= tot ? ' ok' : '') + '" title="' + esc(n ? 'Fatto da: ' + a.fattiNomi.join(', ') : 'Nessuno ha ancora segnato «Fatto»') + '">✓ ' + n + (tot ? '/' + tot : '') + '</span></button></li>';
+    }).join('') + '</ul>';
+    if (tutti.length > DCMAX) h += '<div class="row"><button type="button" class="btn ghost sm" data-act="dc-more">Mostra altri assegni</button></div>';
     return h + '</section>';
   }
   function docMaterialeCard() {
@@ -2969,6 +2989,7 @@ const NOTA = (function () {
       case 'mat-go': go('materiali'); MAT = MAT || {}; MAT.gid = el.dataset.id; return;
       case 'mat-dl': dlMat(el.dataset.id); return;
       case 'as-new': ASS.form = nuovoAss(); ASS.del = null; render(); return;
+      case 'dc-more': DCMAX += 12; render(); return;
       case 'dc-new': PEND_NEW = el.dataset.id; MAT = MAT || { gid: '', cart: null, busy: false, err: '', msg: '', del: null }; if (MAT.gid !== el.dataset.id) { MAT.gid = el.dataset.id; MAT.cart = null; ASS = null; } go('materiali'); return;
       case 'cl-open': MAT = MAT || { gid: '', cart: null, busy: false, err: '', msg: '', del: null }; if (MAT.gid !== el.dataset.id) { MAT.gid = el.dataset.id; MAT.cart = null; ASS = null; } go('materiali'); return;
       case 'solf-edit': adm.solfEdit = adm.solfEdit === el.dataset.id ? null : el.dataset.id; adm.solfMsg = ''; render(); return;
