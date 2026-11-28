@@ -465,6 +465,25 @@ a.mini { display: inline-flex; align-items: center; text-decoration: none; }
 .cp-old summary { cursor: pointer; font-size: 13px; font-weight: 700; color: var(--muted); }
 .cp-ok { margin: 0; }
 .cp { gap: 12px; }
+.dg-area { display: grid; gap: 8px; margin-top: 6px; }
+.dg-t { margin: 4px 0 0; font-size: 14px; }
+.dg-area .dg-btn { border-left: 6px solid #8a94a6; }
+.dg-area.cp-band .dg-btn { border-left-color: #b4561c; } .dg-area.cp-solf .dg-btn { border-left-color: #2f7d4f; } .dg-area.cp-str .dg-btn { border-left-color: #3b47d6; } .dg-area.cp-rec .dg-btn { border-left-color: #8a3fb0; }
+.dg-btn strong { font-size: 1.05rem; }
+.cp-h .mini + .mini { margin-left: 0; }
+details.dc-det:not([open]) > summary { margin-bottom: 0; }
+.dc-a { margin: 0; } .dc-a small { color: var(--muted); }
+.cp-it ul.dc-v { margin-left: 0; }
+.dc-more { margin: 0; font-size: 13px; }
+.dc-vuoti .row { flex-wrap: wrap; }
+details.dc-det > summary { cursor: pointer; list-style: none; display: grid; gap: 2px; padding-right: 28px; position: relative; }
+details.dc-det > summary::-webkit-details-marker { display: none; }
+details.dc-det > summary::after { content: "▾"; position: absolute; right: 4px; top: 2px; font-size: 20px; transition: transform .2s; }
+details.dc-det[open] > summary::after { transform: rotate(180deg); }
+details.dc-det[open] > summary { margin-bottom: 12px; }
+.dc-sum-t { font-size: 1.25rem; font-weight: 800; }
+.dc-sum-s { font-size: 14px; color: var(--muted); }
+details.dc-det .card { border: 0; box-shadow: none; padding: 0; margin: 0; background: none; }
 .cl-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
 .cl-btn { display: grid; gap: 2px; text-align: left; border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; background: var(--surface); cursor: pointer; font: inherit; color: inherit; min-height: 56px; }
 .cl-btn:hover, .cl-btn:focus-visible { border-color: var(--accent, #3b47d6); }
@@ -1000,7 +1019,7 @@ const NOTA = (function () {
       if (!u) return;
       const staff = u.ruolo !== 'allievo';
       Object.keys(localStorage).forEach(k => {
-        if (k === 'dfa-pc-' + u.id || k === 'dfa-dp-' + u.id || k === 'dfa-cp-' + u.id || k.indexOf('dfa-key-' + u.id + '-') === 0 || (staff && k.indexOf('dfa-cc2-' + u.id + '-') === 0)) localStorage.removeItem(k);
+        if (k === 'dfa-pc-' + u.id || k === 'dfa-dp-' + u.id || k === 'dfa-cp-' + u.id || k === 'dfa-dc-' + u.id || k.indexOf('dfa-key-' + u.id + '-') === 0 || (staff && k.indexOf('dfa-cc2-' + u.id + '-') === 0)) localStorage.removeItem(k);
       });
     } catch (e) { }
   }
@@ -1061,7 +1080,7 @@ const NOTA = (function () {
     });
   }
   function expire(msg) {
-    pulisciCache(SESS && SESS.user); DPG = null; COMP = null; PRE_P = null; PRE_C = null;
+    pulisciCache(SESS && SESS.user); DPG = null; COMP = null; DC = null; PEND_NEW = null; PRE_P = null; PRE_C = null;
     SESS = null; DATA = null; SEZ = null; PROG = {}; tries = {}; savedT = {}; adm = null; pg = null; PORTAL = null; MAT = null; editing = false; dirty = false; route = { v: 'portal', i: 0, tab: 'teoria' };
     login.msg = msg || 'La sessione è scaduta. Accedi di nuovo.'; login.busy = false;
     render();
@@ -2097,6 +2116,7 @@ const NOTA = (function () {
     adm.busy = true; adm.err = ''; render();
     if (PORTAL.secs && dpVisible()) loadDashProg();
     if (isAll()) loadCompiti();
+    if (isDoc()) loadDocCompiti();
     const legacy = () => {
       const j = [tcall('elencoSezioni').then(cur(r => { PORTAL.secs = r; })), tcall('elencoGruppi').then(cur(r => { PORTAL.grp = r; }))];
       if (isSeg()) j.push(tcall('cruscottoSegreteria').then(cur(r => { PORTAL.dash = r; })), tcall('elencoUtenze').then(cur(r => { adm.users = r; })), tcall('leggiModelloMessaggio').then(cur(r => { adm.set = r; })), tcall('gestioneGruppi').then(cur(r => { adm.grp = r; })));
@@ -2108,7 +2128,7 @@ const NOTA = (function () {
       if (r.dash) { PORTAL.dash = r.dash; adm.users = r.utenti; adm.set = r.modello; adm.grp = r.gestione; }
       pcPut();
     })).catch(e => { if (/Operazione non valida/.test(e.message)) return legacy(); throw e; })];
-    Promise.all(jobs).then(() => { if (seq === LOADSEQ) prefetchSez(); }).catch(e => { if (seq === LOADSEQ) adm.err = e.message; }).then(() => { if (seq !== LOADSEQ) return; adm.busy = false; if (isPortal()) { if (route.v === 'materiali') initMat(); else render(); if (dpVisible()) loadDashProg(); } });
+    Promise.all(jobs).then(() => { if (seq === LOADSEQ) prefetchSez(); }).catch(e => { if (seq === LOADSEQ) adm.err = e.message; }).then(() => { if (seq !== LOADSEQ) return; adm.busy = false; if (isPortal()) { if (route.v === 'materiali') initMat(); else render(); if (dpVisible()) loadDashProg(); if (isDoc()) loadDocCompiti(); } });
   }
   /* copia della dashboard nel browser: all'apertura si vede subito, poi si aggiorna dal server */
   const pcKey = () => 'dfa-pc-' + (SESS && SESS.user ? SESS.user.id : '');
@@ -2347,14 +2367,97 @@ const NOTA = (function () {
   const pageHead = (eyebrow, title, lead) => '<header class="ch-h"><p class="eyebrow">' + esc(eyebrow) + '</p><h1>' + esc(title) + '</h1>' + (lead ? '<p class="lead sm">' + esc(lead) + '</p>' : '') + '</header>';
   const waiting = () => (adm && adm.err ? '<p class="alert bad" role="alert">' + esc(adm.err) + '</p>' : '') + (adm && adm.busy ? (!(PORTAL && PORTAL.secs) ? '<p class="empty">Caricamento…</p>' : '<p class="sync-note" role="status">Aggiorno i dati…</p>') : '');
 
+  /* ---------- home del docente: gruppi (prima le band), assegni pubblicati, materiale didattico ---------- */
+  const isDoc = () => !!SESS && SESS.user.ruolo === 'docente';
+  let DC = null, PEND_NEW = null; const DET_OPEN = {};
+  document.addEventListener('toggle', e => { const d = e.target; if (d && d.dataset && d.dataset.det) DET_OPEN[d.dataset.det] = d.open; }, true);
+  const dcKey = () => 'dfa-dc-' + (SESS && SESS.user ? SESS.user.id : '');
+  const DOC_ORD = ['Band', 'Teoria e solfeggio', 'Corsi individuali', 'Recitazione'];
+  const docOrd = a => { const i = DOC_ORD.indexOf(a || AREA_VUOTA); return i < 0 ? 99 : i; };
+  function dcSalva() { try { localStorage.setItem(dcKey(), JSON.stringify({ g: DC.g, at: DC.at })); } catch (e) { } }
+  function dcMetti(gid, r) {
+    if (!isDoc() || !r) return;
+    DC = DC || { g: {}, at: 0, busy: false };
+    DC.g[gid] = { scrive: !!r.puoScrivere, assegni: (r.assegni || []).slice(0, 6), note: (r.note || []).slice(0, 3), nAss: (r.assegni || []).length, nNote: (r.note || []).length };
+    dcSalva();
+  }
+  function loadDocCompiti() {
+    if (!isDoc()) return;
+    if (!DC) { DC = { g: {}, at: 0, busy: false }; try { const c = JSON.parse(localStorage.getItem(dcKey()) || 'null'); if (c && c.g) { DC.g = c.g; DC.at = c.at || 0; } } catch (e) { } }
+    if (DC.busy || Date.now() - DC.at < 60000) return;
+    const grp = (PORTAL && PORTAL.grp) || [];
+    if (!grp.length) return;
+    DC.busy = true; if (isPortal() && route.v === 'portal') setTimeout(render, 0);
+    const uid = SESS.user.id, coda = grp.map(g => g.id);
+    const lavora = () => { const gid = coda.shift(); if (!gid) return Promise.resolve(); return tcall('elencoAssegni', gid).then(r => { if (SESS && SESS.user.id === uid) dcMetti(gid, r); }).catch(() => { }).then(lavora); };
+    Promise.all([lavora(), lavora(), lavora(), lavora()]).then(() => {
+      if (!DC || !SESS || SESS.user.id !== uid) return;
+      DC.busy = false; DC.at = Date.now(); dcSalva();
+      if (isPortal() && route.v === 'portal') render();
+    });
+  }
+  function docGruppiCard() {
+    const g = ((PORTAL && PORTAL.grp) || []).slice().sort((a, b) => docOrd(a.area) - docOrd(b.area) || a.nome.localeCompare(b.nome, 'it'));
+    if (!g.length) return '<section class="card"><h2>I tuoi gruppi</h2><p class="empty">Non hai ancora nessun gruppo assegnato. Scrivi alla segreteria.</p></section>';
+    const aree = [];
+    g.forEach(x => { const a = x.area || AREA_VUOTA; let o = aree.filter(y => y.a === a)[0]; if (!o) { o = { a: a, items: [] }; aree.push(o); } o.items.push(x); });
+    return '<section class="card"><h2>I tuoi gruppi</h2><p class="note">Apri un gruppo per pubblicare assegni e note e per caricare o scaricare i materiali.</p>' + aree.map(o => {
+      const cat = catCorso(o.a === AREA_VUOTA ? '' : o.a);
+      const tit = o.a === 'Band' ? 'Band' : o.a === AREA_SOLF ? 'Classi di Teoria e solfeggio' : o.a === 'Corsi individuali' ? 'Corsi individuali' : o.a;
+      return '<div class="dg-area cp-' + cat.c + '"><h3 class="dg-t"><span class="cp-cat">' + esc(tit) + '</span></h3><div class="cl-grid">' + o.items.map(x => {
+        const d = DC && DC.g[x.id];
+        const info = d ? (d.nAss ? d.nAss + (d.nAss === 1 ? ' assegno' : ' assegni') : 'Nessun assegno') + (d.nNote ? ' · ' + d.nNote + (d.nNote === 1 ? ' nota' : ' note') : '') : 'Assegni, note e materiali';
+        return '<button type="button" class="cl-btn dg-btn" data-act="cl-open" data-id="' + esc(x.id) + '"><strong>' + esc(x.nome) + '</strong><span>' + esc(info) + '</span></button>';
+      }).join('') + '</div></div>';
+    }).join('') + '</section>';
+  }
+  function docCompitiCard() {
+    const g = ((PORTAL && PORTAL.grp) || []).slice();
+    if (!g.length) return '';
+    let h = '<section class="card cp" id="compiti-doc"><div class="dp-h"><h2>Compiti assegnati</h2>' + (DC && DC.busy ? '<span class="cp-sum">Aggiorno…</span>' : '') + '</div>';
+    if (!DC || (!Object.keys(DC.g).length && DC.busy)) return h + '<p class="empty">Carico gli assegni dei tuoi gruppi…</p></section>';
+    const ult = x => { const d = DC.g[x.id]; return d && d.assegni.length ? String(d.assegni[0].data || '') : ''; };
+    g.sort((a, b) => ult(b).localeCompare(ult(a)) || docOrd(a.area) - docOrd(b.area) || a.nome.localeCompare(b.nome, 'it'));
+    const vuoti = [];
+    h += g.map(x => {
+      const d = DC.g[x.id];
+      if (!d) return '';
+      if (!d.assegni.length && !d.note.length) { if (d.scrive) vuoti.push(x); return ''; }
+      const cat = catCorso(x.area);
+      let s = '<article class="cp-g cp-' + cat.c + '"><header class="cp-h"><span class="cp-cat">' + esc(cat.t) + '</span><strong>' + esc(x.nome) + '</strong><button type="button" class="mini" data-act="cl-open" data-id="' + esc(x.id) + '">Apri il gruppo</button>' + (d.scrive ? '<button type="button" class="mini" data-act="dc-new" data-id="' + esc(x.id) + '">+ Nuovo assegno</button>' : '') + '</header>';
+      d.assegni.slice(0, 3).forEach(a => {
+        const n = (a.fattiNomi || []).length;
+        s += '<div class="cp-it"><p class="dc-a"><strong>' + esc(a.titolo || 'Assegno') + '</strong> <small>· Lezione di ' + esc(dataIt(a.data)) + '</small>' + (a.destinatariNomi && a.destinatariNomi.length ? ' ' + perChi(a.destinatariNomi) : '') + '</p>' +
+          (a.voci && a.voci.length ? '<ul class="as-v dc-v">' + a.voci.slice(0, 4).map(v => '<li>' + esc(v) + '</li>').join('') + (a.voci.length > 4 ? '<li>…</li>' : '') + '</ul>' : '') +
+          '<p class="as-meta">✓ Fatto da ' + n + (a.iscritti ? ' di ' + a.iscritti : '') + (n ? ': ' + esc(a.fattiNomi.join(', ')) : '') + '</p></div>';
+      });
+      if (d.nAss > 3) s += '<p class="note dc-more">Altri ' + (d.nAss - 3) + ' assegni nel gruppo.</p>';
+      if (d.note.length) { const nt = d.note[0], k = (nt.lettiNomi || []).length; s += '<div class="cp-it"><p class="as-meta">📝 Ultima nota · ' + esc(fmtData(nt.creato)) + ' · letta da ' + k + (nt.iscritti ? ' di ' + nt.iscritti : '') + '</p><p class="nt-t">' + esc(String(nt.testo || '').slice(0, 160)) + (String(nt.testo || '').length > 160 ? '…' : '') + '</p></div>'; }
+      return s + '</article>';
+    }).join('');
+    if (vuoti.length) h += '<div class="dc-vuoti"><p class="note">Ancora nessun assegno in:</p><div class="row">' + vuoti.map(x => '<button type="button" class="btn ghost sm" data-act="dc-new" data-id="' + esc(x.id) + '">+ ' + esc(x.nome) + '</button>').join('') + '</div></div>';
+    if (!g.some(x => DC.g[x.id] && (DC.g[x.id].assegni.length || DC.g[x.id].note.length))) h += '<p class="note">Non hai ancora pubblicato assegni. Apri un gruppo o usa i pulsanti qui sopra.</p>';
+    return h + '</section>';
+  }
+  function docMaterialeCard() {
+    const secs = (PORTAL && PORTAL.secs) || [];
+    if (!secs.length) return '';
+    return '<details class="card dc-det" data-det="mat"' + (DET_OPEN.mat ? ' open' : '') + '><summary><span class="dc-sum-t">Materiale didattico</span><span class="dc-sum-s">' + esc(secs.map(s => s.nome).join(' · ')) + '</span></summary><p class="note">Supporto alla didattica in sola consultazione: teoria, esercizi con soluzioni, note per il docente, giochi e schede. Utile anche in proiezione a lezione.</p><div class="sec-grid">' + secs.map(s => secCard(s)).join('') + '</div></details>';
+  }
+  function docProgressiCard() {
+    const c = dpCard();
+    if (!c) return '';
+    return '<details class="card dc-det" data-det="prog"' + (DET_OPEN.prog ? ' open' : '') + '><summary><span class="dc-sum-t">Progressi degli allievi</span><span class="dc-sum-s">Percentuali di risposte esatte e allievi da seguire</span></summary>' + c + '</details>';
+  }
+
   function portalNav() {
     let h = '<nav class="side" aria-label="Menu">';
     if (isSeg()) {
       h += '<div class="n-sep first">Segreteria</div>' + PAGES_SEG.map(p => go_(p[0]) + ' class="n-home ' + (route.v === p[0] ? 'cur' : '') + '">' + esc(p[1]) + '</a>').join('');
     } else {
-      h += go_('portal') + ' class="n-home ' + (route.v === 'portal' ? 'cur' : '') + '">Le mie sezioni</a>';
+      h += go_('portal') + ' class="n-home ' + (route.v === 'portal' ? 'cur' : '') + '">' + (isDoc() ? 'Home' : 'Le mie sezioni') + '</a>';
       if (isStaff()) h += go_('p-progressi') + ' class="n-home ' + (route.v === 'p-progressi' ? 'cur' : '') + '">Progressi allievi</a>';
-      if (PORTAL && PORTAL.grp && PORTAL.grp.length) h += go_('materiali') + ' class="n-home ' + (route.v === 'materiali' ? 'cur' : '') + '">Materiali</a>';
+      if (PORTAL && PORTAL.grp && PORTAL.grp.length) h += go_('materiali') + ' class="n-home ' + (route.v === 'materiali' ? 'cur' : '') + '">' + (isDoc() ? 'Gruppi, assegni e materiali' : 'Materiali') + '</a>';
     }
     h += '<div class="n-sep">Sezioni di studio</div>' + ((PORTAL && PORTAL.secs) || []).map(s => '<button type="button" class="n-home as-link" data-act="open-sez" data-s="' + esc(s.id) + '">' + esc(s.nome) + '</button>').join('');
     return h + '</nav>';
@@ -2363,6 +2466,7 @@ const NOTA = (function () {
   function portalHome() {
     if (!isSeg()) {
       const doc = SESS.user.ruolo === 'docente';
+      if (doc) return pageHead('Domus Form Academy', 'Ciao ' + String(SESS.user.nome).split(' ')[0], 'I tuoi gruppi, gli assegni che hai pubblicato e il materiale didattico.') + waiting() + (PORTAL && PORTAL.secs ? docGruppiCard() + docCompitiCard() + docMaterialeCard() + docProgressiCard() : '');
       let h = pageHead('Domus Form Academy', 'Ciao ' + String(SESS.user.nome).split(' ')[0], doc ? 'Apri i materiali dei tuoi gruppi e le sezioni di teoria a tua disposizione.' : 'Qui trovi i compiti di tutti i tuoi corsi, le sezioni di studio e i materiali.');
       h += waiting();
       if (!doc) h += compitiCard();
@@ -2544,7 +2648,7 @@ const NOTA = (function () {
     const gid = MAT.gid;
     const st = ASS && ASS.gid === gid;
     ASS = { gid: gid, list: st ? ASS.list : null, note: st ? ASS.note : undefined, allievi: st ? ASS.allievi : [], busy: true, err: '', form: st ? ASS.form : null, nform: st ? ASS.nform : null, del: null, ndel: null, save: false, nsave: false, aperti: (ASS && ASS.aperti) || 0, naperte: (ASS && ASS.naperte) || 0 };
-    tcall('elencoAssegni', gid).then(r => { if (!ASS || ASS.gid !== gid) return; ASS.list = r.assegni; ASS.scrive = r.puoScrivere; ASS.note = r.note; ASS.allievi = r.allievi || []; })
+    tcall('elencoAssegni', gid).then(r => { if (!ASS || ASS.gid !== gid) return; ASS.list = r.assegni; ASS.scrive = r.puoScrivere; ASS.note = r.note; ASS.allievi = r.allievi || []; dcMetti(gid, r); if (PEND_NEW === gid) { PEND_NEW = null; if (r.puoScrivere && !ASS.form) ASS.form = nuovoAss(); } })
       .catch(e => { if (ASS) ASS.err = e.message; }).then(() => { if (ASS && ASS.gid === gid) { ASS.busy = false; if (route.v === 'materiali') render(); } });
   }
   function assFormHTML(f) {
@@ -2625,13 +2729,13 @@ const NOTA = (function () {
     const v = materialiBase();
     if (!(MAT && MAT.gid && PORTAL && PORTAL.grp && PORTAL.grp.length)) return v;
     const gc = PORTAL.grp.filter(x => x.id === MAT.gid)[0], extra = assegniHTML() + noteHTML();
-    if (gc && gc.area === AREA_SOLF) { const i = v.indexOf('<section class="card">'); if (i >= 0) return v.slice(0, i) + extra + v.slice(i); } // nelle classi di solfeggio prima assegni e note, poi i file
+    if (gc) { const i = v.indexOf('<section class="card">'); if (i >= 0) return v.slice(0, i) + extra + v.slice(i); } // prima assegni e note, poi i file
     return v + extra;
   }
   function materialiBase() {
     const g = (PORTAL && PORTAL.grp) || [];
     const gc = MAT && g.filter(x => x.id === MAT.gid)[0];
-    let h = (gc && gc.area === AREA_SOLF ? pageHead('Teoria e solfeggio', gc.nome, 'Assegni e note della classe, più la cartella con spartiti ed esercizi da scaricare.') : pageHead('Domus Form Academy', 'Materiali', 'Spartiti, basi, documenti, registrazioni e assegni delle lezioni dei tuoi gruppi.')) + waiting();
+    let h = (gc && gc.area === AREA_SOLF ? pageHead('Teoria e solfeggio', gc.nome, 'Assegni e note della classe, più la cartella con spartiti ed esercizi da scaricare.') : gc ? pageHead(catCorso(gc.area).t, gc.nome, 'Assegni e note del gruppo, poi spartiti, basi, documenti e registrazioni.') : pageHead('Domus Form Academy', 'Materiali', 'Spartiti, basi, documenti, registrazioni e assegni delle lezioni dei tuoi gruppi.')) + waiting();
     if (!PORTAL || !PORTAL.grp) return h;
     if (!g.length) return h + '<p class="empty">Non hai ancora nessun gruppo abilitato. Scrivi alla segreteria.</p>';
     h += '<section class="card"><label class="fld sm"><span>Gruppo</span><select data-mat="gid">' + perArea(g).map(ar => '<optgroup label="' + esc(ar.area) + '">' + ar.items.map(x => '<option value="' + esc(x.id) + '" ' + (MAT && MAT.gid === x.id ? 'selected' : '') + '>' + esc(x.nome) + '</option>').join('') + '</optgroup>').join('') + '</select></label>';
@@ -2863,6 +2967,7 @@ const NOTA = (function () {
       case 'mat-go': go('materiali'); MAT = MAT || {}; MAT.gid = el.dataset.id; return;
       case 'mat-dl': dlMat(el.dataset.id); return;
       case 'as-new': ASS.form = nuovoAss(); ASS.del = null; render(); return;
+      case 'dc-new': PEND_NEW = el.dataset.id; MAT = MAT || { gid: '', cart: null, busy: false, err: '', msg: '', del: null }; if (MAT.gid !== el.dataset.id) { MAT.gid = el.dataset.id; MAT.cart = null; ASS = null; } go('materiali'); return;
       case 'cl-open': MAT = MAT || { gid: '', cart: null, busy: false, err: '', msg: '', del: null }; if (MAT.gid !== el.dataset.id) { MAT.gid = el.dataset.id; MAT.cart = null; ASS = null; } go('materiali'); return;
       case 'solf-edit': adm.solfEdit = adm.solfEdit === el.dataset.id ? null : el.dataset.id; adm.solfMsg = ''; render(); return;
       case 'nt-new': ASS.nform = nuovaNota(); ASS.ndel = null; render(); { const t = $('[data-form="nota"] textarea'); if (t) t.focus(); } return;
